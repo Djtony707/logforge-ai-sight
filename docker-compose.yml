@@ -25,7 +25,7 @@ services:
 
   # PostgreSQL 16 + TimescaleDB + pgvector
   db:
-    image: timescale/timescaledb-ha:pg16-latest
+    image: timescale/timescaledb:latest-pg16
     ports:
       - "5432:5432"
     environment:
