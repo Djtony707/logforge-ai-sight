@@ -63,17 +63,17 @@ export const useToast = () => {
       }
     ) => {
       return toast.promise(promise, {
-        loading: { description: loading },
-        success: {
-          description: typeof success === "function" 
-            ? (data) => success(data as T) 
-            : success,
+        loading,
+        success: (data) => {
+          return typeof success === "function" 
+            ? success(data as T) 
+            : success;
         },
-        error: {
-          description: typeof error === "function" 
-            ? (err) => error(err) 
-            : error,
-        },
+        error: (err) => {
+          return typeof error === "function" 
+            ? error(err) 
+            : error;
+        }
       });
     },
   };
