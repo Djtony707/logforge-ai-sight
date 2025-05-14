@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import LiveFeed from "@/components/LiveFeed";
 import SearchLogs from "@/components/SearchLogs";
 import AIInsights from "@/components/AIInsights";
@@ -9,43 +8,47 @@ import LoginForm from "@/components/LoginForm";
 import Dashboard from "@/components/Dashboard";
 import AdminSettings from "@/components/AdminSettings";
 
-const Index = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [role, setRole] = useState<"admin" | "viewer" | null>(null);
+interface IndexProps {
+  isLoggedIn: boolean;
+  userRole: string | null;
+  onLogin: (token: string, role: string) => void;
+  onLogout: () => void;
+}
 
-  const handleLogin = (userRole: "admin" | "viewer") => {
-    setIsAuthenticated(true);
-    setRole(userRole);
+const Index = ({ isLoggedIn, userRole, onLogin, onLogout }: IndexProps) => {
+  // No longer need these states as they're passed as props
+  // const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // const [role, setRole] = useState<"admin" | "viewer" | null>(null);
+
+  const handleLogin = (role: "admin" | "viewer") => {
+    // Mock token for demo purposes
+    const mockToken = "mock-jwt-token-" + Date.now();
+    onLogin(mockToken, role);
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setRole(null);
-  };
-
-  if (!isAuthenticated) {
+  if (!isLoggedIn) {
     return <LoginForm onLogin={handleLogin} />;
   }
 
   return (
-    <Dashboard role={role} onLogout={handleLogout}>
+    <Dashboard role={userRole as "admin" | "viewer" | null} onLogout={onLogout}>
       <Tabs defaultValue="live" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="live">Live Feed</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
           <TabsTrigger value="insights">AI Insights</TabsTrigger>
-          {role === "admin" && <TabsTrigger value="admin">Admin</TabsTrigger>}
+          {userRole === "admin" && <TabsTrigger value="admin">Admin</TabsTrigger>}
         </TabsList>
         <TabsContent value="live" className="space-y-4">
           <LiveFeed />
         </TabsContent>
         <TabsContent value="search" className="space-y-4">
-          <SearchLogs role={role} />
+          <SearchLogs role={userRole as "admin" | "viewer" | null} />
         </TabsContent>
         <TabsContent value="insights" className="space-y-4">
           <AIInsights />
         </TabsContent>
-        {role === "admin" && (
+        {userRole === "admin" && (
           <TabsContent value="admin" className="space-y-4">
             <div className="bg-white p-6 rounded-lg shadow">
               <AdminSettings />
