@@ -1,253 +1,294 @@
-from fastapi import Depends, WebSocket, WebSocketDisconnect
-from typing import Annotated, Dict, List
+
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import JSONResponse
+from asyncpg.exceptions import PostgresError
 import asyncio
-import asyncpg
 import json
-import os
-import re
-from collections import Counter
-
+from typing import List, Dict, Optional, Any
+from datetime import datetime, timedelta
 from .. import app, db_pool
-from ..models import LogSearch
-from ..auth import get_current_active_user
-
-@app.post("/logs/search")
-async def search_logs(
-    search: LogSearch,
-    current_user: Annotated[dict, Depends(get_current_active_user)]
-):
-    query = "SELECT id, ts, host, app, severity, msg, is_anomaly, anomaly_score FROM logs WHERE 1=1"
-    params = []
-    param_idx = 1
-    
-    if search.start_date:
-        query += f" AND ts >= ${param_idx}"
-        params.append(search.start_date)
-        param_idx += 1
-        
-    if search.end_date:
-        query += f" AND ts <= ${param_idx}"
-        params.append(search.end_date)
-        param_idx += 1
-        
-    if search.host:
-        query += f" AND host = ${param_idx}"
-        params.append(search.host)
-        param_idx += 1
-        
-    if search.app:
-        query += f" AND app = ${param_idx}"
-        params.append(search.app)
-        param_idx += 1
-        
-    if search.severity:
-        query += f" AND severity = ${param_idx}"
-        params.append(search.severity)
-        param_idx += 1
-        
-    if search.message:
-        if search.use_regex:
-            query += f" AND msg ~ ${param_idx}"
-            params.append(search.message)
-        else:
-            query += f" AND msg ILIKE ${param_idx}"
-            params.append(f"%{search.message}%")
-        param_idx += 1
-    
-    query += " ORDER BY ts DESC LIMIT 1000"
-    
-    async with db_pool.acquire() as conn:
-        rows = await conn.fetch(query, *params)
-        results = [dict(row) for row in rows]
-    
-    return results
-
-@app.get("/logs/stats")
-async def get_log_stats(current_user: Annotated[dict, Depends(get_current_active_user)]):
-    async with db_pool.acquire() as conn:
-        total_count = await conn.fetchval("SELECT COUNT(*) FROM logs")
-        
-        hosts = await conn.fetch("SELECT host, COUNT(*) as count FROM logs GROUP BY host ORDER BY count DESC LIMIT 10")
-        
-        apps = await conn.fetch("SELECT app, COUNT(*) as count FROM logs GROUP BY app ORDER BY count DESC LIMIT 10")
-        
-        severity_counts = await conn.fetch(
-            "SELECT severity, COUNT(*) as count FROM logs GROUP BY severity ORDER BY CASE severity " +
-            "WHEN 'emergency' THEN 0 WHEN 'alert' THEN 1 WHEN 'critical' THEN 2 " +
-            "WHEN 'error' THEN 3 WHEN 'warning' THEN 4 WHEN 'notice' THEN 5 " + 
-            "WHEN 'info' THEN 6 WHEN 'debug' THEN 7 ELSE 8 END"
-        )
-        
-        anomaly_count = await conn.fetchval("SELECT COUNT(*) FROM logs WHERE is_anomaly = TRUE")
-        
-    return {
-        "total_logs": total_count,
-        "hosts": [dict(h) for h in hosts],
-        "applications": [dict(a) for a in apps],
-        "severity_distribution": [dict(s) for s in severity_counts],
-        "anomaly_count": anomaly_count
-    }
-
-@app.get("/logs/anomalies")
-async def get_recent_anomalies(current_user: Annotated[dict, Depends(get_current_active_user)]):
-    """Get the most recent anomalies for analysis."""
-    async with db_pool.acquire() as conn:
-        anomalies = await conn.fetch(
-            "SELECT id, ts, host, app, severity, msg, anomaly_score "
-            "FROM logs WHERE is_anomaly = TRUE ORDER BY ts DESC LIMIT 20"
-        )
-        return [dict(a) for a in anomalies]
-
-@app.get("/logs/forecast")
-async def get_log_forecast(current_user: Annotated[dict, Depends(get_current_active_user)]):
-    """Get the forecast data for log volume."""
-    async with db_pool.acquire() as conn:
-        forecast_data = await conn.fetch(
-            "SELECT ts as date, value as predicted, lower_bound as lower, upper_bound as upper "
-            "FROM forecasts WHERE metric = 'log_volume' ORDER BY ts ASC LIMIT 7"
-        )
-        return [dict(f) for f in forecast_data]
-
-@app.get("/logs/patterns")
-async def get_log_patterns(current_user: Annotated[dict, Depends(get_current_active_user)], limit: int = 10):
-    """Get the most common log message patterns."""
-    async with db_pool.acquire() as conn:
-        # Get recent logs for pattern analysis
-        logs = await conn.fetch(
-            "SELECT msg FROM logs ORDER BY ts DESC LIMIT 1000"
-        )
-        
-        # Extract patterns from logs
-        patterns = []
-        pattern_counts = Counter()
-        
-        for log in logs:
-            # Replace specific values with placeholders
-            # IPs, timestamps, numbers, hexadecimal values, UUIDs
-            msg = log['msg']
-            
-            # Replace common variable patterns
-            pattern = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', '<IP_ADDRESS>', msg)
-            pattern = re.sub(r'\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b', '<UUID>', pattern, flags=re.IGNORECASE)
-            pattern = re.sub(r'\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b', '<TIMESTAMP>', pattern)
-            pattern = re.sub(r'\b0x[0-9a-f]+\b', '<HEX_VALUE>', pattern, flags=re.IGNORECASE)
-            pattern = re.sub(r'\b\d+\b', '<NUMBER>', pattern)
-            
-            pattern_counts[pattern] += 1
-        
-        # Get the most common patterns
-        most_common_patterns = [
-            {"pattern": pattern, "count": count, "examples": []}
-            for pattern, count in pattern_counts.most_common(limit)
-        ]
-        
-        # Find examples for each pattern
-        for pattern_info in most_common_patterns:
-            pattern_regex = pattern_info["pattern"]
-            
-            # Convert the pattern back to a regex pattern for matching examples
-            search_pattern = pattern_regex
-            search_pattern = search_pattern.replace('<IP_ADDRESS>', r'(?:\d{1,3}\.){3}\d{1,3}')
-            search_pattern = search_pattern.replace('<UUID>', r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
-            search_pattern = search_pattern.replace('<TIMESTAMP>', r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?')
-            search_pattern = search_pattern.replace('<HEX_VALUE>', r'0x[0-9a-f]+')
-            search_pattern = search_pattern.replace('<NUMBER>', r'\d+')
-            
-            # Escape any special regex characters in the original text
-            search_pattern = "^" + re.escape(search_pattern).replace("\<", "<").replace("\>", ">") + "$"
-            
-            # Find examples for this pattern
-            examples = await conn.fetch(
-                "SELECT id, ts, host, app, severity, msg FROM logs WHERE msg ~ $1 ORDER BY ts DESC LIMIT 3",
-                search_pattern
-            )
-            
-            pattern_info["examples"] = [dict(example) for example in examples]
-        
-        return most_common_patterns
+from ..models import LogBase, LogSearch
+from ..auth import get_current_active_user, check_admin_role
 
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: Dict[str, List[WebSocket]] = {}
-
-    async def connect(self, websocket: WebSocket, client_id: str):
+        self.active_connections: Dict[str, List[WebSocket]] = {
+            "logs": [],
+            "anomalies": [],
+            "alerts": []
+        }
+    
+    async def connect(self, websocket: WebSocket, client_type: str):
         await websocket.accept()
-        if client_id not in self.active_connections:
-            self.active_connections[client_id] = []
-        self.active_connections[client_id].append(websocket)
-
-    def disconnect(self, websocket: WebSocket, client_id: str):
-        if client_id in self.active_connections:
-            self.active_connections[client_id].remove(websocket)
-            if not self.active_connections[client_id]:
-                del self.active_connections[client_id]
-
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
-
-    async def broadcast(self, message: str, client_id: str):
-        if client_id in self.active_connections:
-            for connection in self.active_connections[client_id]:
+        self.active_connections[client_type].append(websocket)
+    
+    def disconnect(self, websocket: WebSocket, client_type: str):
+        self.active_connections[client_type].remove(websocket)
+    
+    async def broadcast(self, message: str, client_type: str):
+        for connection in self.active_connections[client_type]:
+            try:
                 await connection.send_text(message)
+            except Exception:
+                # Handle disconnection or other errors
+                pass
 
 manager = ConnectionManager()
-anomaly_manager = ConnectionManager()
 
-# Start listening for PostgreSQL NOTIFY events
-async def listen_for_notifications(client_id: str, channel: str, connection_manager):
-    conn = await asyncpg.connect(
-        host=os.environ.get("DB_HOST", "db"),
-        port=int(os.environ.get("DB_PORT", "5432")),
-        user=os.environ.get("DB_USER", "logforge"),
-        password=os.environ.get("DB_PASSWORD"),
-        database=os.environ.get("DB_NAME", "logforge_db")
-    )
-    
-    await conn.add_listener(channel, lambda _, msg: asyncio.create_task(
-        connection_manager.broadcast(msg, client_id)
-    ))
-    
-    try:
-        # Keep the connection open to receive notifications
-        while client_id in connection_manager.active_connections:
-            await asyncio.sleep(1)
-    finally:
-        await conn.close()
-
+# WebSocket endpoints
 @app.websocket("/ws/logs")
-async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
-    if client_id is None:
-        client_id = f"client_{id(websocket)}"
-        
-    await manager.connect(websocket, client_id)
+async def websocket_logs(websocket: WebSocket):
+    await manager.connect(websocket, "logs")
     
-    # Start PostgreSQL NOTIFY listener in background
-    listener_task = asyncio.create_task(listen_for_notifications(client_id, 'new_log', manager))
-    
+    # Listen for PostgreSQL notifications via LISTEN/NOTIFY
     try:
-        while True:
-            # Just keep the connection alive
-            await websocket.receive_text()
+        async with db_pool.acquire() as conn:
+            await conn.add_listener('new_log', lambda _, message: asyncio.create_task(
+                manager.broadcast(message, "logs")
+            ))
+            
+            # Keep the connection alive
+            while True:
+                await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket, client_id)
-        listener_task.cancel()
+        manager.disconnect(websocket, "logs")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        manager.disconnect(websocket, "logs")
+    finally:
+        # Clean up the listener when disconnected
+        async with db_pool.acquire() as conn:
+            await conn.remove_listener('new_log', lambda _, message: asyncio.create_task(
+                manager.broadcast(message, "logs")
+            ))
 
 @app.websocket("/ws/anomalies")
-async def anomalies_websocket(websocket: WebSocket, client_id: str = None):
-    """WebSocket endpoint for real-time anomaly notifications."""
-    if client_id is None:
-        client_id = f"anomaly_client_{id(websocket)}"
-        
-    await anomaly_manager.connect(websocket, client_id)
-    
-    # Start PostgreSQL NOTIFY listener for anomalies in background
-    listener_task = asyncio.create_task(listen_for_notifications(client_id, 'new_anomaly', anomaly_manager))
+async def websocket_anomalies(websocket: WebSocket):
+    await manager.connect(websocket, "anomalies")
     
     try:
-        while True:
-            # Keep the connection alive
-            await websocket.receive_text()
+        async with db_pool.acquire() as conn:
+            await conn.add_listener('new_anomaly', lambda _, message: asyncio.create_task(
+                manager.broadcast(message, "anomalies")
+            ))
+            
+            while True:
+                await websocket.receive_text()
     except WebSocketDisconnect:
-        anomaly_manager.disconnect(websocket, client_id)
-        listener_task.cancel()
+        manager.disconnect(websocket, "anomalies")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        manager.disconnect(websocket, "anomalies")
+    finally:
+        async with db_pool.acquire() as conn:
+            await conn.remove_listener('new_anomaly', lambda _, message: asyncio.create_task(
+                manager.broadcast(message, "anomalies")
+            ))
+
+@app.websocket("/ws/alerts")
+async def websocket_alerts(websocket: WebSocket):
+    await manager.connect(websocket, "alerts")
+    
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.add_listener('new_alert', lambda _, message: asyncio.create_task(
+                manager.broadcast(message, "alerts")
+            ))
+            
+            while True:
+                await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, "alerts")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        manager.disconnect(websocket, "alerts")
+    finally:
+        async with db_pool.acquire() as conn:
+            await conn.remove_listener('new_alert', lambda _, message: asyncio.create_task(
+                manager.broadcast(message, "alerts")
+            ))
+
+# Search logs endpoint
+@app.post("/logs/search")
+async def search_logs(
+    search_params: LogSearch,
+    current_user: dict = Depends(get_current_active_user)
+):
+    try:
+        conditions = []
+        params = []
+        counter = 1
+        
+        if search_params.start_date:
+            conditions.append(f"ts >= ${counter}")
+            params.append(search_params.start_date)
+            counter += 1
+        
+        if search_params.end_date:
+            conditions.append(f"ts <= ${counter}")
+            params.append(search_params.end_date)
+            counter += 1
+        
+        if search_params.host:
+            if search_params.use_regex:
+                conditions.append(f"host ~* ${counter}")
+            else:
+                conditions.append(f"host ILIKE ${counter}")
+                search_params.host = f"%{search_params.host}%"
+            params.append(search_params.host)
+            counter += 1
+        
+        if search_params.app:
+            if search_params.use_regex:
+                conditions.append(f"app ~* ${counter}")
+            else:
+                conditions.append(f"app ILIKE ${counter}")
+                search_params.app = f"%{search_params.app}%"
+            params.append(search_params.app)
+            counter += 1
+        
+        if search_params.severity:
+            conditions.append(f"severity = ${counter}")
+            params.append(search_params.severity)
+            counter += 1
+        
+        if search_params.message:
+            if search_params.use_regex:
+                conditions.append(f"msg ~* ${counter}")
+            else:
+                conditions.append(f"msg ILIKE ${counter}")
+                search_params.message = f"%{search_params.message}%"
+            params.append(search_params.message)
+            counter += 1
+        
+        where_clause = " AND ".join(conditions) if conditions else "TRUE"
+        
+        query = f"""
+            SELECT id, ts, host, app, severity, msg, is_anomaly, anomaly_score
+            FROM logs
+            WHERE {where_clause}
+            ORDER BY ts DESC
+            LIMIT 1000
+        """
+        
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(query, *params)
+            
+        result = [dict(row) for row in rows]
+        return result
+    
+    except PostgresError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching logs: {str(e)}")
+
+# Get log stats endpoint
+@app.get("/logs/stats")
+async def get_log_stats(current_user: dict = Depends(get_current_active_user)):
+    try:
+        async with db_pool.acquire() as conn:
+            # Get total count
+            total_count = await conn.fetchval("SELECT COUNT(*) FROM logs")
+            
+            # Get counts by severity
+            severity_rows = await conn.fetch("""
+                SELECT severity, COUNT(*) as count
+                FROM logs
+                GROUP BY severity
+                ORDER BY count DESC
+            """)
+            
+            # Get counts by host
+            host_rows = await conn.fetch("""
+                SELECT host, COUNT(*) as count
+                FROM logs
+                GROUP BY host
+                ORDER BY count DESC
+                LIMIT 10
+            """)
+            
+            # Get counts by application
+            app_rows = await conn.fetch("""
+                SELECT app, COUNT(*) as count
+                FROM logs
+                GROUP BY app
+                ORDER BY count DESC
+                LIMIT 10
+            """)
+            
+            # Get last 24 hours trend (hourly)
+            trend_rows = await conn.fetch("""
+                SELECT 
+                    date_trunc('hour', ts) as hour,
+                    COUNT(*) as count
+                FROM logs
+                WHERE ts >= NOW() - INTERVAL '24 hours'
+                GROUP BY hour
+                ORDER BY hour
+            """)
+            
+            # Get anomaly percentage
+            anomaly_count = await conn.fetchval("""
+                SELECT COUNT(*) FROM logs WHERE is_anomaly = true
+            """)
+            
+            anomaly_percentage = (anomaly_count / total_count * 100) if total_count > 0 else 0
+            
+        return {
+            "total_count": total_count,
+            "by_severity": [dict(row) for row in severity_rows],
+            "by_host": [dict(row) for row in host_rows],
+            "by_app": [dict(row) for row in app_rows],
+            "trend": [dict(row) for row in trend_rows],
+            "anomaly_count": anomaly_count,
+            "anomaly_percentage": anomaly_percentage
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving log stats: {str(e)}")
+
+# Get log patterns endpoint
+@app.get("/logs/patterns")
+async def get_log_patterns(current_user: dict = Depends(get_current_active_user)):
+    try:
+        async with db_pool.acquire() as conn:
+            # This is a simplified implementation
+            # In a production system, this would use more sophisticated pattern detection algorithms
+            patterns = await conn.fetch("""
+                WITH message_groups AS (
+                    SELECT 
+                        REGEXP_REPLACE(msg, '[0-9]+', '#') as pattern,
+                        COUNT(*) as count,
+                        array_agg(id) as example_ids
+                    FROM logs
+                    WHERE ts >= NOW() - INTERVAL '24 hours'
+                    GROUP BY pattern
+                    HAVING COUNT(*) >= 5
+                    ORDER BY count DESC
+                    LIMIT 10
+                )
+                SELECT 
+                    mg.pattern,
+                    mg.count,
+                    json_agg(
+                        json_build_object(
+                            'id', l.id,
+                            'ts', l.ts,
+                            'host', l.host,
+                            'app', l.app,
+                            'severity', l.severity,
+                            'msg', l.msg
+                        )
+                    ) as examples
+                FROM message_groups mg
+                JOIN logs l ON l.id = ANY(mg.example_ids)
+                GROUP BY mg.pattern, mg.count
+                LIMIT 100
+            """)
+            
+            return [dict(row) for row in patterns]
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing log patterns: {str(e)}")
+

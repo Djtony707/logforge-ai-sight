@@ -10,6 +10,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { CalendarIcon, Download, Search } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { fetchApi, SearchLogsParams } from "@/lib/api";
+import { severityColors, severityOptions } from "@/lib/constants";
 
 interface LogEntry {
   id: string;
@@ -26,22 +29,8 @@ interface SearchLogsProps {
   role: "admin" | "viewer" | null;
 }
 
-const severityColors = {
-  emergency: "bg-red-600",
-  alert: "bg-red-500",
-  critical: "bg-red-400",
-  error: "bg-orange-500",
-  warning: "bg-yellow-500",
-  notice: "bg-blue-500",
-  info: "bg-green-500",
-  debug: "bg-gray-500",
-};
-
-const severityOptions = ["emergency", "alert", "critical", "error", "warning", "notice", "info", "debug"];
-
 const SearchLogs = ({ role }: SearchLogsProps) => {
   const [searchResults, setSearchResults] = useState<LogEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [host, setHost] = useState("");
   const [app, setApp] = useState("");
@@ -51,63 +40,21 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
   const [useRegex, setUseRegex] = useState(false);
   const { toast } = useToast();
   
-  const handleSearch = async () => {
-    setIsLoading(true);
-    try {
-      // In development mode without backend, use mock data
-      if (process.env.NODE_ENV === "development" && !import.meta.env.VITE_API_URL) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const mockResults: LogEntry[] = Array(20).fill(0).map((_, i) => ({
-          id: `mock-${i}`,
-          ts: new Date(Date.now() - i * 3600000).toISOString(),
-          host: ["server1", "db-primary", "web-frontend"][i % 3] + ".example.com",
-          app: ["nginx", "postgres", "app-server"][i % 3],
-          severity: ["info", "warning", "error", "critical"][i % 4] as any,
-          msg: `Sample log message ${i} matching "${searchTerm}"`,
-          is_anomaly: i % 7 === 0,
-          anomaly_score: i % 7 === 0 ? Math.random() : undefined
-        }));
-        setSearchResults(mockResults);
-        return;
-      }
-      
-      // Real API call
-      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
-      const token = localStorage.getItem('access_token');
-      
-      if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "You must be logged in to search logs",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      const response = await fetch(`${apiUrl}/logs/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          start_date: startDate?.toISOString(),
-          end_date: endDate?.toISOString(),
-          host: host || undefined,
-          app: app || undefined,
-          severity: severity === 'all' ? undefined : severity,
-          message: searchTerm || undefined,
-          use_regex: useRegex
-        })
+  const searchMutation = useMutation({
+    mutationFn: async (params: SearchLogsParams) => {
+      return fetchApi<LogEntry[]>("/logs/search", {
+        method: "POST",
+        body: params,
       });
-      
-      if (!response.ok) {
-        throw new Error(`Search request failed with status: ${response.status}`);
-      }
-      
-      const results = await response.json();
-      setSearchResults(results);
-    } catch (error) {
+    },
+    onSuccess: (data) => {
+      setSearchResults(data);
+      toast({
+        title: "Search completed",
+        description: `Found ${data.length} results`,
+      });
+    },
+    onError: (error) => {
       console.error("Search failed:", error);
       toast({
         title: "Search Failed",
@@ -115,9 +62,36 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
         variant: "destructive",
       });
       setSearchResults([]);
-    } finally {
-      setIsLoading(false);
     }
+  });
+  
+  const handleSearch = () => {
+    // In development mode without backend, use mock data
+    if (process.env.NODE_ENV === "development" && !import.meta.env.VITE_API_URL) {
+      const mockResults: LogEntry[] = Array(20).fill(0).map((_, i) => ({
+        id: `mock-${i}`,
+        ts: new Date(Date.now() - i * 3600000).toISOString(),
+        host: ["server1", "db-primary", "web-frontend"][i % 3] + ".example.com",
+        app: ["nginx", "postgres", "app-server"][i % 3],
+        severity: ["info", "warning", "error", "critical"][i % 4] as any,
+        msg: `Sample log message ${i} matching "${searchTerm}"`,
+        is_anomaly: i % 7 === 0,
+        anomaly_score: i % 7 === 0 ? Math.random() : undefined
+      }));
+      setSearchResults(mockResults);
+      return;
+    }
+    
+    // Use React Query for real API call
+    searchMutation.mutate({
+      start_date: startDate?.toISOString(),
+      end_date: endDate?.toISOString(),
+      host: host || undefined,
+      app: app || undefined,
+      severity: severity === 'all' ? undefined : severity,
+      message: searchTerm || undefined,
+      use_regex: useRegex
+    });
   };
 
   const handleExport = (format: "csv" | "json") => {
@@ -241,9 +215,9 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
         </div>
         
         <div className="flex justify-between items-center">
-          <Button onClick={handleSearch} disabled={isLoading}>
+          <Button onClick={handleSearch} disabled={searchMutation.isPending}>
             <Search className="mr-2 h-4 w-4" />
-            {isLoading ? "Searching..." : "Search"}
+            {searchMutation.isPending ? "Searching..." : "Search"}
           </Button>
           
           {role === "admin" && searchResults.length > 0 && (

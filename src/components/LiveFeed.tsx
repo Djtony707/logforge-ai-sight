@@ -1,46 +1,13 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import useWebSocket from "@/hooks/useWebSocket";
-
-interface LogEntry {
-  id: string;
-  ts: string;
-  host: string;
-  app: string;
-  severity: "emergency" | "alert" | "critical" | "error" | "warning" | "notice" | "info" | "debug";
-  msg: string;
-  is_anomaly?: boolean;
-  anomaly_score?: number;
-}
-
-const severityColors = {
-  emergency: "bg-red-600",
-  alert: "bg-red-500",
-  critical: "bg-red-400",
-  error: "bg-orange-500",
-  warning: "bg-yellow-500",
-  notice: "bg-blue-500",
-  info: "bg-green-500",
-  debug: "bg-gray-500",
-};
+import { useLogWebSocket, LogEntry } from "@/hooks/useLogWebSocket";
+import { severityColors } from "@/lib/constants";
 
 const LiveFeed = () => {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const { lastMessage, isConnected } = useWebSocket("/ws/logs");
+  const { logs, isConnected } = useLogWebSocket(1000);
   const [autoScroll, setAutoScroll] = useState(true);
-
-  useEffect(() => {
-    if (lastMessage) {
-      try {
-        const newLog = JSON.parse(lastMessage);
-        setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 999)]);
-      } catch (error) {
-        console.error("Failed to parse WebSocket message:", error);
-      }
-    }
-  }, [lastMessage]);
 
   const formatTimestamp = (ts: string) => {
     const date = new Date(ts);

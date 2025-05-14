@@ -33,26 +33,33 @@ function parseSyslogMessage(message) {
     // Convert Buffer to string if needed
     const msg = message.toString('utf8');
     
-    // Basic regex for syslog format: <PRI>TIMESTAMP HOST APP[PID]: MESSAGE
-    const regex = /<(\d+)>(\w+\s+\d+\s+\d+:\d+:\d+)\s+(\S+)\s+(\S+)(?:\[(\d+)\])?:\s+(.*)/;
-    const match = msg.match(regex);
+    // RFC5424 format: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID STRUCTURED-DATA MSG
+    const rfc5424Regex = /^<(\d+)>(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(?:\[([^\]]*)\]\s+)?(.+)$/;
+    
+    // RFC3164 format: <PRI>TIMESTAMP HOSTNAME APP[PID]: MSG
+    const rfc3164Regex = /<(\d+)>(\w+\s+\d+\s+\d+:\d+:\d+)\s+(\S+)\s+(\S+)(?:\[(\d+)\])?:\s+(.*)/;
+    
+    let match = msg.match(rfc5424Regex) || msg.match(rfc3164Regex);
     
     if (match) {
       const priority = parseInt(match[1], 10);
       const severity = priority % 8;
       const facility = Math.floor(priority / 8);
+      const host = match[3] || match[4];
+      const app = match[4] || match[5];
+      const message = match[8] || match[6];
       
       return {
         id: uuidv4(),
-        ts: new Date().toISOString(), // Use current date for consistency
-        host: match[3],
-        app: match[4],
+        ts: new Date().toISOString(),
+        host: host,
+        app: app,
         facility,
         severity: mapSeverity(severity),
-        msg: match[6],
+        msg: message,
       };
     } else {
-      // Simpler fallback parsing if the regex didn't match
+      // Last resort fallback parsing
       const parts = msg.split(' ');
       return {
         id: uuidv4(),
@@ -110,11 +117,63 @@ async function processLog(log) {
     if (result.rows.length > 0) {
       const logJson = JSON.stringify(result.rows[0]);
       await pool.query(`SELECT pg_notify('new_log', $1)`, [logJson]);
+      
+      // Trigger alert check (in a real system, this would be more sophisticated)
+      await checkAlerts(log);
     }
     
     console.log(`Log processed: ${log.host} - ${log.app} - ${log.severity} - ${log.msg.substring(0, 50)}`);
   } catch (error) {
     console.error('Error saving log to database:', error);
+  }
+}
+
+// Check if log triggers any alerts
+async function checkAlerts(log) {
+  try {
+    // Get all active alerts
+    const alertsResult = await pool.query(`
+      SELECT id, name, severity, query 
+      FROM alerts 
+      WHERE is_active = true
+    `);
+    
+    for (const alert of alertsResult.rows) {
+      let isTriggered = false;
+      
+      // Simple query matching (in production this would be more sophisticated)
+      if (log.severity === alert.severity && log.msg.includes(alert.query)) {
+        isTriggered = true;
+      }
+      
+      if (isTriggered) {
+        // Update alert last_triggered time
+        await pool.query(`
+          UPDATE alerts 
+          SET last_triggered = CURRENT_TIMESTAMP 
+          WHERE id = $1
+        `, [alert.id]);
+        
+        // Insert into alert history
+        await pool.query(`
+          INSERT INTO alert_history(alert_id, log_ids)
+          VALUES($1, $2)
+        `, [alert.id, [log.id]]);
+        
+        // Notify clients about the triggered alert
+        const alertNotification = {
+          alert_id: alert.id,
+          alert_name: alert.name,
+          severity: alert.severity,
+          log_id: log.id,
+          triggered_at: new Date().toISOString()
+        };
+        
+        await pool.query(`SELECT pg_notify('new_alert', $1)`, [JSON.stringify(alertNotification)]);
+      }
+    }
+  } catch (error) {
+    console.error('Error checking alerts:', error);
   }
 }
 
