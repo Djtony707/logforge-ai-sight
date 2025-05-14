@@ -86,6 +86,34 @@ Open your browser and navigate to http://localhost:3000
 - Minimum: 8 CPU cores, 16 GB RAM
 - Recommended: 16 CPU cores, 32 GB RAM
 
+## AI Features
+
+LogForge AI includes several powerful AI capabilities to help you analyze and understand your logs:
+
+### Real-time Anomaly Detection
+
+- Automatically identifies unusual log patterns that may indicate issues
+- Uses statistical and machine learning techniques to detect outliers
+- Updates in real-time as new logs arrive
+
+### Pattern Analysis
+
+- Groups similar log entries together to identify recurring patterns
+- Replaces variable data with placeholders for easier recognition
+- Shows frequency and examples of each detected pattern
+
+### Natural Language Queries
+
+- Ask questions about your logs in plain English
+- "Show me all failed login attempts in the last hour"
+- "What are the top error messages today?"
+
+### Log Volume Forecasting
+
+- Predicts future log volume based on historical data
+- Helps with capacity planning and anomaly detection
+- 7-day forecast updated daily
+
 ## Enabling the AI Summarizer
 
 The AI summarizer (Mistral-7B) is disabled by default as it requires more resources.
