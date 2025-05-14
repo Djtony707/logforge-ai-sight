@@ -2,7 +2,11 @@
 import { toast } from "sonner";
 import { ApiOptions } from "./types";
 
+// Determine API URL from environment or derive from current origin
 export const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
+
+// Determine WebSocket URL from API_URL
+export const WS_URL = API_URL.replace(/^http/, 'ws');
 
 export const fetchApi = async <T>(endpoint: string, options: ApiOptions = {}): Promise<T> => {
   const { method = "GET", body, token = localStorage.getItem("access_token") } = options;

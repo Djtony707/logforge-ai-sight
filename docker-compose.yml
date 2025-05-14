@@ -20,8 +20,8 @@ services:
     restart: unless-stopped
     volumes:
       - ingest_logs:/app/logs
-    # We'll mount the code in development, but for production deployment we don't want this
-    # So we're removing the volume that mounts local code
+    networks:
+      - logforge_network
 
   # PostgreSQL 16 + TimescaleDB + pgvector
   db:
@@ -37,6 +37,8 @@ services:
       - ./db/init:/docker-entrypoint-initdb.d
       - db_logs:/var/log/postgresql
     restart: unless-stopped
+    networks:
+      - logforge_network
 
   # FastAPI, REST + WebSocket
   api:
@@ -58,18 +60,23 @@ services:
     restart: unless-stopped
     volumes:
       - api_logs:/app/logs
+    networks:
+      - logforge_network
 
   # React 18 + Vite + Tailwind
   ui:
     build:
-      context: ./ui
+      context: .
+      dockerfile: ui/Dockerfile
     ports:
       - "3000:3000"
     environment:
-      - API_URL=${API_URL}
+      - VITE_API_URL=${API_URL}
     depends_on:
       - api
     restart: unless-stopped
+    networks:
+      - logforge_network
 
   # Python IsolationForest, CPU-only
   ai_anomaly:
@@ -87,6 +94,8 @@ services:
     restart: unless-stopped
     volumes:
       - ai_anomaly_logs:/app/logs
+    networks:
+      - logforge_network
 
   # Ollama TinyLlama-1.1B, CPU-only
   ai_nl:
@@ -98,8 +107,10 @@ services:
       - "11434:11434"
     command: ["serve"]
     restart: unless-stopped
+    networks:
+      - logforge_network
 
-  # Prophet cron; CPU-only
+  # Prophet forecasting service
   ai_forecast:
     build:
       context: ./ai_forecast
@@ -115,6 +126,8 @@ services:
     restart: unless-stopped
     volumes:
       - ai_forecast_logs:/app/logs
+    networks:
+      - logforge_network
 
   # Database backup service
   backup:
@@ -137,6 +150,8 @@ services:
     restart: unless-stopped
     depends_on:
       - db
+    networks:
+      - logforge_network
 
   # Log rotation service
   logrotate:
@@ -154,6 +169,12 @@ services:
       echo '0 0 * * * logrotate -f /etc/logrotate.conf > /dev/null 2>&1' > /etc/crontabs/root && 
       crond -f -d 8"
     restart: unless-stopped
+    networks:
+      - logforge_network
+
+networks:
+  logforge_network:
+    driver: bridge
 
 volumes:
   pgdata:

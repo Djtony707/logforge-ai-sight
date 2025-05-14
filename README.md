@@ -11,7 +11,7 @@ A lightweight syslog dashboard that you can run with one command, then open a br
   - Anomaly detection using IsolationForest algorithm
   - Pattern analysis to group similar log entries
   - Natural language queries powered by TinyLlama-1.1B
-  - Log volume forecasting with Prophet
+  - Log volume forecasting
 - **Alerting System**: Create custom alerts based on log patterns with real-time notifications
 - **Responsive Dashboard**: Modern UI that works on desktop and mobile devices
 - **Secure Access**: Role-based authentication with admin and viewer roles
@@ -73,20 +73,41 @@ git clone https://github.com/yourusername/logforge-ai.git
 cd logforge-ai
 ```
 
-2. Create and configure the `.env` file:
+2. Edit the `.env` file with your preferred settings:
 ```bash
+# Make a copy of the example environment file
 cp .env.example .env
+
 # Edit the .env file with your preferred text editor
 nano .env
 ```
 
-3. Start the application:
+3. Build and start all services:
 ```bash
-docker-compose up -d
+make prod
+# Or alternatively:
+# docker-compose up -d
 ```
 
 4. Access the dashboard:
 Open your browser and navigate to http://your-server-ip:3000
+
+## Directory Structure
+
+```
+logforge-ai/
+├── api/                  # FastAPI backend
+├── db/init/              # Database initialization scripts
+├── ingest/               # Syslog ingest service
+├── ai_anomaly/           # Anomaly detection service
+├── ai_forecast/          # Log volume forecasting service
+├── tools/                # Utility scripts
+├── ui/                   # Frontend Dockerfile
+├── src/                  # Frontend source code
+├── docker-compose.yml    # Main Docker Compose file
+├── docker-compose.dev.yml # Development overrides
+└── .env                  # Environment configuration
+```
 
 ## Configuring Log Sources
 
@@ -132,11 +153,6 @@ sudo systemctl enable --now systemd-journal-upload.service
 
 **Important**: Change these default credentials after first login!
 
-## Hardware Requirements
-
-- **Minimum**: 4 CPU cores, 8 GB RAM
-- **Recommended**: 8 CPU cores, 16 GB RAM, SSD storage
-
 ## Troubleshooting
 
 ### Common Issues
@@ -146,18 +162,26 @@ sudo systemctl enable --now systemd-journal-upload.service
    - Verify network connectivity and firewall settings
    - Run `docker-compose logs ingest` to check for connection issues
 
-2. **High CPU/Memory usage**:
+2. **UI cannot connect to API**:
+   - Make sure the API_URL in .env is correctly set to an address accessible from your browser
+   - If using a reverse proxy, ensure proper WebSocket forwarding
+
+3. **High CPU/Memory usage**:
    - Adjust resource limits in docker-compose.yml
    - Consider disabling AI features if system resources are limited
    - Monitor with `docker stats`
 
-3. **AI features not working**:
-   - Check if the AI services are running with `docker-compose ps`
-   - Inspect logs with `docker-compose logs ai_anomaly` or `docker-compose logs ai_nl`
+4. **Database connection issues**:
+   - Check the database logs with `docker-compose logs db`
+   - Verify the database credentials in your .env file
 
 For more help, check the logs:
 ```bash
+# View all logs
 docker-compose logs -f
+
+# View logs for a specific service
+docker-compose logs -f api
 ```
 
 ## License
