@@ -4,7 +4,7 @@
 
 # Get date in YYYY-MM-DD format
 DATE=$(date +%Y-%m-%d)
-BACKUP_DIR="/backups"
+BACKUP_DIR="${BACKUP_PATH:-/backups}"
 RETENTION_DAYS=${BACKUP_RETENTION:-7}
 
 # Ensure backup directory exists
