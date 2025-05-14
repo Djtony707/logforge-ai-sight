@@ -1,35 +1,74 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { API_URL } from './lib/api';
+import { Toaster } from "@/components/ui/toaster"; // Add Toaster component
 
-// Create a client for React Query
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+// Pages
+import Index from './pages/Index';
+import NotFound from './pages/NotFound';
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  
+  // Check for existing token on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Verify token validity with API
+      fetch(`${API_URL}/users/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          return response.json();
+        }
+        throw new Error('Invalid token');
+      })
+      .then(data => {
+        setIsLoggedIn(true);
+        setUserRole(data.role);
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+      });
+    }
+  }, []);
+  
+  const handleLogin = (token: string, role: string) => {
+    localStorage.setItem('token', token);
+    setIsLoggedIn(true);
+    setUserRole(role);
+  };
+  
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    setUserRole(null);
+  };
+
+  return (
+    <Router>
+      <Routes>
+        <Route 
+          path="/" 
+          element={
+            <Index 
+              isLoggedIn={isLoggedIn}
+              userRole={userRole}
+              onLogin={handleLogin}
+              onLogout={handleLogout}
+            />
+          } 
+        />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster /> {/* Add Toaster component for toast notifications */}
+    </Router>
+  );
+}
 
 export default App;

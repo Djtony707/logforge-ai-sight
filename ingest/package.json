@@ -2,21 +2,16 @@
 {
   "name": "logforge-ingest",
   "version": "1.0.0",
-  "description": "UDP/TCP syslog listener for LogForge AI",
-  "main": "index.js",
+  "description": "Syslog UDP/TCP listener for LogForge",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "jest"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
   },
   "dependencies": {
-    "pg": "^8.11.3",
-    "dotenv": "^16.3.1",
-    "uuid": "^9.0.1",
-    "modern-syslog": "^1.2.0"
+    "pg": "^8.11.3"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "jest": "^29.7.0"
+    "nodemon": "^2.0.22"
   }
 }

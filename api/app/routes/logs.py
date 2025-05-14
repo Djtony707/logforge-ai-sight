@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import JSONResponse
 from asyncpg.exceptions import PostgresError
@@ -44,8 +43,8 @@ async def websocket_logs(websocket: WebSocket):
     # Listen for PostgreSQL notifications via LISTEN/NOTIFY
     try:
         async with db_pool.acquire() as conn:
-            await conn.add_listener('new_log', lambda _, message: asyncio.create_task(
-                manager.broadcast(message, "logs")
+            await conn.add_listener('new_log', lambda conn, pid, channel, payload: asyncio.create_task(
+                manager.broadcast(payload, "logs")
             ))
             
             # Keep the connection alive
@@ -59,9 +58,7 @@ async def websocket_logs(websocket: WebSocket):
     finally:
         # Clean up the listener when disconnected
         async with db_pool.acquire() as conn:
-            await conn.remove_listener('new_log', lambda _, message: asyncio.create_task(
-                manager.broadcast(message, "logs")
-            ))
+            await conn.remove_listener('new_log')
 
 @app.websocket("/ws/anomalies")
 async def websocket_anomalies(websocket: WebSocket):
@@ -69,8 +66,8 @@ async def websocket_anomalies(websocket: WebSocket):
     
     try:
         async with db_pool.acquire() as conn:
-            await conn.add_listener('new_anomaly', lambda _, message: asyncio.create_task(
-                manager.broadcast(message, "anomalies")
+            await conn.add_listener('new_anomaly', lambda conn, pid, channel, payload: asyncio.create_task(
+                manager.broadcast(payload, "anomalies")
             ))
             
             while True:
@@ -82,9 +79,7 @@ async def websocket_anomalies(websocket: WebSocket):
         manager.disconnect(websocket, "anomalies")
     finally:
         async with db_pool.acquire() as conn:
-            await conn.remove_listener('new_anomaly', lambda _, message: asyncio.create_task(
-                manager.broadcast(message, "anomalies")
-            ))
+            await conn.remove_listener('new_anomaly')
 
 @app.websocket("/ws/alerts")
 async def websocket_alerts(websocket: WebSocket):
@@ -92,8 +87,8 @@ async def websocket_alerts(websocket: WebSocket):
     
     try:
         async with db_pool.acquire() as conn:
-            await conn.add_listener('new_alert', lambda _, message: asyncio.create_task(
-                manager.broadcast(message, "alerts")
+            await conn.add_listener('new_alert', lambda conn, pid, channel, payload: asyncio.create_task(
+                manager.broadcast(payload, "alerts")
             ))
             
             while True:
@@ -105,9 +100,7 @@ async def websocket_alerts(websocket: WebSocket):
         manager.disconnect(websocket, "alerts")
     finally:
         async with db_pool.acquire() as conn:
-            await conn.remove_listener('new_alert', lambda _, message: asyncio.create_task(
-                manager.broadcast(message, "alerts")
-            ))
+            await conn.remove_listener('new_alert')
 
 # Search logs endpoint
 @app.post("/logs/search")
@@ -292,3 +285,101 @@ async def get_log_patterns(current_user: dict = Depends(get_current_active_user)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing log patterns: {str(e)}")
 
+# New endpoint for CSV/JSON export
+@app.post("/logs/export")
+async def export_logs(
+    search_params: LogSearch,
+    format: str = "json",
+    current_user: dict = Depends(get_current_active_user)
+):
+    try:
+        conditions = []
+        params = []
+        counter = 1
+        
+        if search_params.start_date:
+            conditions.append(f"ts >= ${counter}")
+            params.append(search_params.start_date)
+            counter += 1
+        
+        if search_params.end_date:
+            conditions.append(f"ts <= ${counter}")
+            params.append(search_params.end_date)
+            counter += 1
+        
+        if search_params.host:
+            if search_params.use_regex:
+                conditions.append(f"host ~* ${counter}")
+            else:
+                conditions.append(f"host ILIKE ${counter}")
+                search_params.host = f"%{search_params.host}%"
+            params.append(search_params.host)
+            counter += 1
+        
+        if search_params.app:
+            if search_params.use_regex:
+                conditions.append(f"app ~* ${counter}")
+            else:
+                conditions.append(f"app ILIKE ${counter}")
+                search_params.app = f"%{search_params.app}%"
+            params.append(search_params.app)
+            counter += 1
+        
+        if search_params.severity:
+            conditions.append(f"severity = ${counter}")
+            params.append(search_params.severity)
+            counter += 1
+        
+        if search_params.message:
+            if search_params.use_regex:
+                conditions.append(f"msg ~* ${counter}")
+            else:
+                conditions.append(f"msg ILIKE ${counter}")
+                search_params.message = f"%{search_params.message}%"
+            params.append(search_params.message)
+            counter += 1
+        
+        where_clause = " AND ".join(conditions) if conditions else "TRUE"
+        
+        query = f"""
+            SELECT id, ts, host, app, severity, msg, is_anomaly, anomaly_score
+            FROM logs
+            WHERE {where_clause}
+            ORDER BY ts DESC
+        """
+        
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(query, *params)
+            
+        result = [dict(row) for row in rows]
+        
+        if format.lower() == "csv":
+            # Convert to CSV format
+            import csv
+            from io import StringIO
+            
+            output = StringIO()
+            if result:
+                writer = csv.DictWriter(output, fieldnames=result[0].keys())
+                writer.writeheader()
+                writer.writerows(result)
+                
+            return JSONResponse(
+                content={"csv_data": output.getvalue()},
+                headers={
+                    "Content-Disposition": f"attachment; filename=logs_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                }
+            )
+        else:
+            # JSON format (default)
+            return JSONResponse(
+                content=result,
+                headers={
+                    "Content-Disposition": f"attachment; filename=logs_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                }
+            )
+    
+    except PostgresError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting logs: {str(e)}")

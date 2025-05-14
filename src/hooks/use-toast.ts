@@ -1,4 +1,3 @@
-
 // This file is adapted from shadcn toast implementation
 import * as React from "react"
 
@@ -7,8 +6,8 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 20
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 5
+const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -27,7 +26,7 @@ const actionTypes = {
 let count = 0
 
 function genId() {
-  count = (count + 1) % Number.MAX_SAFE_INTEGER
+  count = (count + 1) % Number.MAX_VALUE
   return count.toString()
 }
 
@@ -44,11 +43,11 @@ type Action =
     }
   | {
       type: ActionType["DISMISS_TOAST"]
-      toastId?: string
+      toastId?: ToasterToast["id"]
     }
   | {
       type: ActionType["REMOVE_TOAST"]
-      toastId?: string
+      toastId?: ToasterToast["id"]
     }
 
 interface State {
@@ -76,43 +75,43 @@ const reducer = (state: State, action: Action): State => {
     case actionTypes.DISMISS_TOAST: {
       const { toastId } = action
 
-      // If no id is supplied, dismiss all
-      if (toastId === undefined) {
-        return {
-          ...state,
-          toasts: state.toasts.map((t) => ({
-            ...t,
-            open: false,
-          })),
+      // ! Side effects ! - This could be extracted into a dismissToast() action,
+      // but I'll keep it here for simplicity
+      if (toastId) {
+        if (toastTimeouts.has(toastId)) {
+          clearTimeout(toastTimeouts.get(toastId))
+          toastTimeouts.delete(toastId)
+        }
+      } else {
+        for (const [id, timeout] of toastTimeouts.entries()) {
+          clearTimeout(timeout)
+          toastTimeouts.delete(id)
         }
       }
 
-      // Find the toast and dismiss it
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === toastId ? { ...t, open: false } : t
+          t.id === toastId || toastId === undefined
+            ? {
+                ...t,
+                open: false,
+              }
+            : t
         ),
       }
     }
-
-    case actionTypes.REMOVE_TOAST: {
-      const { toastId } = action
-
-      // If no id is supplied, dismiss all
-      if (toastId === undefined) {
+    case actionTypes.REMOVE_TOAST:
+      if (action.toastId === undefined) {
         return {
           ...state,
           toasts: [],
         }
       }
-
-      // Find the toast and remove it
       return {
         ...state,
-        toasts: state.toasts.filter((t) => t.id !== toastId),
+        toasts: state.toasts.filter((t) => t.id !== action.toastId),
       }
-    }
   }
 }
 
@@ -151,6 +150,14 @@ function toast({ ...props }: Toast) {
     },
   })
 
+  // Set timeout to auto-dismiss the toast if needed
+  if (props.duration !== Infinity) {
+    const timeout = setTimeout(() => {
+      dismiss()
+    }, props.duration || TOAST_REMOVE_DELAY)
+    toastTimeouts.set(id, timeout)
+  }
+
   return {
     id,
     dismiss,
@@ -178,4 +185,4 @@ function useToast() {
   }
 }
 
-export { toast, useToast }
+export { useToast, toast }
