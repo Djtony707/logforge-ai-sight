@@ -1,13 +1,19 @@
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchApi } from "@/lib/api";
+import { Shield, ShieldOff, FileExport, FileX } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
-import { Trash } from "lucide-react";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Alert {
   id: number;
@@ -16,118 +22,89 @@ interface Alert {
   severity: string;
   query: string;
   is_active: boolean;
-  created_at: string;
-  last_triggered?: string;
 }
 
 interface AlertCardProps {
   alert: Alert;
+  onEdit: () => void;
+  onToggle: (isActive: boolean) => void;
+  onDelete: () => void;
 }
 
-const severityColors: Record<string, string> = {
+const severityColors = {
   info: "bg-blue-500",
-  warning: "bg-amber-500",
-  error: "bg-red-500",
-  critical: "bg-red-700",
+  warning: "bg-yellow-500",
+  error: "bg-orange-500",
+  critical: "bg-red-600",
 };
 
-const AlertCard = ({ alert }: AlertCardProps) => {
-  const queryClient = useQueryClient();
-  
-  const updateAlertMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Alert> }) => 
-      fetchApi<Alert>(`/alerts/${id}`, {
-        method: "PATCH",
-        body: data,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["alerts"] });
-      toast({
-        title: "Alert updated",
-        description: "The alert has been updated successfully.",
-      });
-    },
-  });
-
-  const deleteAlertMutation = useMutation({
-    mutationFn: (id: number) => 
-      fetchApi(`/alerts/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["alerts"] });
-      toast({
-        title: "Alert deleted",
-        description: "The alert has been deleted successfully.",
-      });
-    },
-  });
-
-  const toggleAlertActive = () => {
-    updateAlertMutation.mutate({
-      id: alert.id,
-      data: { is_active: !alert.is_active },
-    });
-  };
-
-  const handleDeleteAlert = () => {
-    if (confirm("Are you sure you want to delete this alert?")) {
-      deleteAlertMutation.mutate(alert.id);
-    }
-  };
-
+const AlertCard = ({ alert, onEdit, onToggle, onDelete }: AlertCardProps) => {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              {alert.name}
-              <Badge className={`${severityColors[alert.severity]} text-white`}>
-                {alert.severity}
+    <div className={`border rounded-lg overflow-hidden ${alert.is_active ? 'bg-white' : 'bg-gray-50'}`}>
+      <div className="p-4 flex items-start justify-between">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-medium">{alert.name}</h3>
+            <Badge className={severityColors[alert.severity as keyof typeof severityColors]}>
+              {alert.severity}
+            </Badge>
+            {!alert.is_active && (
+              <Badge variant="outline" className="border-gray-300 text-gray-500">
+                Inactive
               </Badge>
-              {!alert.is_active && (
-                <Badge variant="outline" className="ml-2">Inactive</Badge>
-              )}
-            </CardTitle>
-            <CardDescription className="mt-1">{alert.description}</CardDescription>
+            )}
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="text-red-600 hover:text-red-800 hover:bg-red-100"
-            onClick={handleDeleteAlert}
-          >
-            <Trash className="h-4 w-4" />
-          </Button>
+          <p className="text-gray-600">{alert.description}</p>
+          <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200 font-mono text-sm overflow-x-auto">
+            {alert.query}
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="pb-2">
-        <div className="bg-muted p-3 rounded-md font-mono text-sm overflow-x-auto">
-          <code>{alert.query}</code>
+        
+        <div className="flex flex-col items-center space-y-2 ml-4">
+          <div className="flex items-center space-x-2">
+            {alert.is_active ? (
+              <Shield className="h-4 w-4 text-green-500" />
+            ) : (
+              <ShieldOff className="h-4 w-4 text-gray-400" />
+            )}
+            <Switch
+              checked={alert.is_active}
+              onCheckedChange={onToggle}
+            />
+          </div>
         </div>
-        <div className="mt-3 text-sm flex justify-between">
-          <span className="text-muted-foreground">
-            Created: {new Date(alert.created_at).toLocaleDateString()}
-          </span>
-          {alert.last_triggered && (
-            <span className="text-amber-600">
-              Last triggered: {new Date(alert.last_triggered).toLocaleString()}
-            </span>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter>
-        <div className="flex items-center space-x-2 w-full justify-end">
-          <Label htmlFor={`active-${alert.id}`} className="cursor-pointer">
-            {alert.is_active ? "Active" : "Inactive"}
-          </Label>
-          <Switch
-            id={`active-${alert.id}`}
-            checked={alert.is_active}
-            onCheckedChange={toggleAlertActive}
-          />
-        </div>
-      </CardFooter>
-    </Card>
+      </div>
+      
+      <div className="border-t px-4 py-3 bg-gray-50 flex justify-end space-x-2">
+        <Button variant="outline" size="sm" onClick={onEdit}>
+          <FileExport className="h-4 w-4 mr-1" />
+          Edit
+        </Button>
+        
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-800 border-red-200 hover:border-red-300">
+              <FileX className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Alert</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the "{alert.name}" alert? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onDelete} className="bg-red-600 hover:bg-red-700">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
   );
 };
 
