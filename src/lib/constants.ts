@@ -11,6 +11,18 @@ export const severityColors: Record<string, string> = {
   debug: "bg-gray-500 hover:bg-gray-600"
 };
 
+// Severity levels for filtering and form options
+export const severityOptions = [
+  "emergency", 
+  "alert", 
+  "critical", 
+  "error", 
+  "warning", 
+  "notice", 
+  "info", 
+  "debug"
+];
+
 // Default date ranges for log searches
 export const dateRanges = [
   { label: "Last 15 minutes", value: "15m" },
