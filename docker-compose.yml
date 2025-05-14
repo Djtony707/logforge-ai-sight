@@ -20,6 +20,7 @@ services:
     restart: unless-stopped
     volumes:
       - ingest_logs:/app/logs
+      - ./ingest:/app
 
   # PostgreSQL 16 + TimescaleDB + pgvector
   db:
@@ -136,6 +137,45 @@ services:
   #   volumes:
   #     - ai_summary_logs:/app/logs
 
+  # Database backup service
+  backup:
+    image: postgres:16
+    volumes:
+      - ./tools/backup_db.sh:/backup_db.sh
+      - backup_data:/backups
+      - db_logs:/var/log/postgresql
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - BACKUP_RETENTION=${BACKUP_RETENTION}
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      "chmod +x /backup_db.sh && 
+      echo '0 2 * * * /backup_db.sh >> /var/log/postgresql/backup.log 2>&1' > /var/spool/cron/crontabs/root && 
+      crontab /var/spool/cron/crontabs/root &&
+      crond -f -d 8"
+    restart: unless-stopped
+    depends_on:
+      - db
+
+  # Log rotation service
+  logrotate:
+    image: alpine:latest
+    volumes:
+      - ./tools/logrotate.conf:/etc/logrotate.conf
+      - ingest_logs:/logs/ingest
+      - api_logs:/logs/api
+      - db_logs:/logs/db
+      - ai_anomaly_logs:/logs/ai_anomaly
+      - ai_nl_logs:/logs/ai_nl
+      - ai_forecast_logs:/logs/ai_forecast
+    command: >
+      sh -c "apk add --no-cache logrotate && 
+      echo '0 0 * * * logrotate -f /etc/logrotate.conf > /dev/null 2>&1' > /etc/crontabs/root && 
+      crond -f -d 8"
+    restart: unless-stopped
+
 volumes:
   pgdata:
   ollama_data:
@@ -146,4 +186,4 @@ volumes:
   ai_nl_logs:
   ai_forecast_logs:
   ai_summary_logs:
-
+  backup_data:
