@@ -8,6 +8,13 @@ import AnomalyDisplay from "@/components/ai/AnomalyDisplay";
 import { getAnomalyExplanation } from "@/lib/api";
 import { toast } from "sonner";
 
+interface AnomalyExplanationResponse {
+  explanation: string;
+  anomaly: any;
+  similar_anomalies: any[];
+  stats: any;
+}
+
 const AnomalySection = () => {
   const { anomalies, clearAnomalies } = useAnomalyWebSocket(10);
   const [isExplaining, setIsExplaining] = useState(false);
@@ -26,7 +33,7 @@ const AnomalySection = () => {
       setSelectedAnomaly(latestAnomaly.id);
       
       // Call the API to get an explanation
-      const response = await getAnomalyExplanation(latestAnomaly.id);
+      const response = await getAnomalyExplanation(latestAnomaly.id) as AnomalyExplanationResponse;
       setExplanation(response.explanation);
     } catch (error) {
       console.error("Failed to get anomaly explanation:", error);

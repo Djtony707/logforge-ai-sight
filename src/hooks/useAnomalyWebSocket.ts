@@ -22,8 +22,8 @@ export const useAnomalyWebSocket = (maxAnomalies: number = 20) => {
     const loadInitialAnomalies = async () => {
       try {
         const recentAnomalies = await getRecentAnomalies(maxAnomalies);
-        if (recentAnomalies && recentAnomalies.length > 0) {
-          setAnomalies(recentAnomalies);
+        if (recentAnomalies && Array.isArray(recentAnomalies) && recentAnomalies.length > 0) {
+          setAnomalies(recentAnomalies as Anomaly[]);
         }
       } catch (error) {
         console.error("Failed to load initial anomalies:", error);

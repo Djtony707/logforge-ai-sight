@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 interface ApiOptions {
@@ -216,8 +215,15 @@ export const getLogForecast = async () => {
   return fetchApi('/ai/forecast');
 };
 
-export const getAnomalyExplanation = async (anomalyId: string) => {
-  return fetchApi(`/anomalies/explain/${anomalyId}`);
+export interface AnomalyExplanationResponse {
+  explanation: string;
+  anomaly: any;
+  similar_anomalies: any[];
+  stats: any;
+}
+
+export const getAnomalyExplanation = async (anomalyId: string): Promise<AnomalyExplanationResponse> => {
+  return fetchApi<AnomalyExplanationResponse>(`/anomalies/explain/${anomalyId}`);
 };
 
 export const getPatternExplanation = async (patternId: string) => {
@@ -225,6 +231,16 @@ export const getPatternExplanation = async (patternId: string) => {
 };
 
 // Get recent anomalies
-export const getRecentAnomalies = async (limit = 10) => {
-  return fetchApi(`/anomalies/recent?limit=${limit}`);
+export interface Anomaly {
+  id: string;
+  ts: string;
+  host: string;
+  app: string;
+  severity: string;
+  msg: string;
+  anomaly_score: number;
+}
+
+export const getRecentAnomalies = async (limit = 10): Promise<Anomaly[]> => {
+  return fetchApi<Anomaly[]>(`/anomalies/recent?limit=${limit}`);
 };
