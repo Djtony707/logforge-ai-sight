@@ -2,6 +2,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { severityColors } from "@/lib/constants";
+import { formatTimestamp } from "@/lib/utils";
 
 export interface LogEntry {
   id: string;
@@ -22,11 +23,6 @@ const SearchResults = ({ results }: SearchResultsProps) => {
   if (results.length === 0) {
     return null;
   }
-  
-  const formatTimestamp = (ts: string) => {
-    const date = new Date(ts);
-    return date.toLocaleString();
-  };
 
   return (
     <div className="bg-white rounded-lg shadow overflow-x-auto mt-6">

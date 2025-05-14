@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { fetchApi, SearchLogsParams } from "@/lib/api";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import SearchForm from "@/components/search/SearchForm";
 import SearchResults, { LogEntry } from "@/components/search/SearchResults";
 import ExportButtons from "@/components/search/ExportButtons";
@@ -14,7 +14,7 @@ interface SearchLogsProps {
 
 const SearchLogs = ({ role }: SearchLogsProps) => {
   const [searchResults, setSearchResults] = useState<LogEntry[]>([]);
-  const toast = useToast();
+  const [currentSearchParams, setCurrentSearchParams] = useState<SearchLogsParams | undefined>(undefined);
   
   const searchMutation = useMutation({
     mutationFn: async (params: SearchLogsParams) => {
@@ -25,16 +25,23 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
     },
     onSuccess: (data) => {
       setSearchResults(data);
-      toast.success("Search completed", `Found ${data.length} results`);
+      toast.success(`Search completed`, {
+        description: `Found ${data.length} results`
+      });
     },
     onError: (error) => {
       console.error("Search failed:", error);
-      toast.error("Search Failed", error instanceof Error ? error.message : "An unknown error occurred");
+      toast.error("Search Failed", {
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
       setSearchResults([]);
     }
   });
   
   const handleSearch = (params: SearchLogsParams) => {
+    // Save the current search params for export
+    setCurrentSearchParams(params);
+    
     // In development mode without backend, use mock data
     if (process.env.NODE_ENV === "development" && !import.meta.env.VITE_API_URL) {
       const mockResults: LogEntry[] = Array(20).fill(0).map((_, i) => ({
@@ -64,7 +71,7 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
       
       {searchResults.length > 0 && role === "admin" && (
         <div className="flex justify-end">
-          <ExportButtons results={searchResults} />
+          <ExportButtons results={searchResults} searchParams={currentSearchParams} />
         </div>
       )}
       
