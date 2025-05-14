@@ -29,25 +29,63 @@ const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => {
       
       // Set up a mock message sender for development
       const mockMessageInterval = setInterval(() => {
-        const mockData = {
-          id: Math.random().toString(36).substring(2, 9),
-          ts: new Date().toISOString(),
-          host: ["server1", "db-primary", "web-frontend"][Math.floor(Math.random() * 3)] + ".example.com",
-          app: ["nginx", "postgres", "app-server"][Math.floor(Math.random() * 3)],
-          severity: ["info", "warning", "error", "critical"][Math.floor(Math.random() * 4)],
-          msg: [
-            "Connection established",
-            "CPU usage at 85%",
-            "Failed login attempt",
-            "Disk space warning",
-            "Service restarted"
-          ][Math.floor(Math.random() * 5)],
-          is_anomaly: Math.random() > 0.9,
-          anomaly_score: Math.random()
-        };
-        
-        setLastMessage(JSON.stringify(mockData));
-      }, 3000);
+        // Create different mock data based on the websocket endpoint
+        if (url.includes('anomalies')) {
+          const mockData = {
+            id: Math.random().toString(36).substring(2, 9),
+            ts: new Date().toISOString(),
+            host: ["server1", "db-primary", "web-frontend"][Math.floor(Math.random() * 3)] + ".example.com",
+            app: ["nginx", "postgres", "app-server"][Math.floor(Math.random() * 3)],
+            severity: ["error", "critical"][Math.floor(Math.random() * 2)],
+            msg: [
+              "Connection timeout after 30s",
+              "CPU usage critical: 98%",
+              "Failed to connect to database after 5 retries",
+              "Memory usage exceeded 95% threshold",
+              "Unexpected service termination"
+            ][Math.floor(Math.random() * 5)],
+            anomaly_score: 0.7 + (Math.random() * 0.3)
+          };
+          
+          setLastMessage(JSON.stringify(mockData));
+        } 
+        else if (url.includes('alerts')) {
+          const mockData = {
+            alert_id: Math.floor(Math.random() * 10) + 1,
+            alert_name: [
+              "High Error Rate", 
+              "Database Connection Failures", 
+              "CPU Usage Alert"
+            ][Math.floor(Math.random() * 3)],
+            severity: ["warning", "critical"][Math.floor(Math.random() * 2)],
+            log_id: Math.random().toString(36).substring(2, 9),
+            triggered_at: new Date().toISOString()
+          };
+          
+          setLastMessage(JSON.stringify(mockData));
+        }
+        else {
+          // Regular logs
+          const mockData = {
+            id: Math.random().toString(36).substring(2, 9),
+            ts: new Date().toISOString(),
+            host: ["server1", "db-primary", "web-frontend"][Math.floor(Math.random() * 3)] + ".example.com",
+            app: ["nginx", "postgres", "app-server"][Math.floor(Math.random() * 3)],
+            severity: ["info", "warning", "error", "critical"][Math.floor(Math.random() * 4)],
+            msg: [
+              "Connection established",
+              "CPU usage at 85%",
+              "Failed login attempt",
+              "Disk space warning",
+              "Service restarted"
+            ][Math.floor(Math.random() * 5)],
+            is_anomaly: Math.random() > 0.9,
+            anomaly_score: Math.random()
+          };
+          
+          setLastMessage(JSON.stringify(mockData));
+        }
+      }, url.includes('anomalies') ? 10000 : 3000); // Anomalies are less frequent
       
       return () => clearInterval(mockMessageInterval);
     }

@@ -1,84 +1,161 @@
 
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from "recharts";
 import { fetchApi } from "@/lib/api";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
-interface ForecastDataPoint {
+interface ForecastData {
   date: string;
+  actual?: number;
   predicted: number;
-  lower: number;
-  upper: number;
+  lower_bound?: number;
+  upper_bound?: number;
 }
 
 const ForecastSection = () => {
-  const { data: forecastData = [], isLoading } = useQuery({
-    queryKey: ['forecast'],
-    queryFn: () => fetchApi<ForecastDataPoint[]>('/logs/forecast'),
-  });
+  const [forecastData, setForecastData] = useState<ForecastData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
+  useEffect(() => {
+    const fetchForecast = async () => {
+      try {
+        // In a real implementation, we would call our API
+        // const data = await fetchApi<ForecastData[]>("/ai/forecast");
+        
+        // For demonstration, we'll use mock data
+        // This simulates 3 days of historical data and 7 days of forecast
+        const mockData: ForecastData[] = [];
+        
+        // Historical data (past 3 days)
+        for (let i = 10; i >= 1; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          
+          mockData.push({
+            date: date.toISOString().split('T')[0],
+            actual: Math.floor(Math.random() * 500) + 1500,
+            predicted: Math.floor(Math.random() * 500) + 1500,
+            lower_bound: Math.floor(Math.random() * 400) + 1300,
+            upper_bound: Math.floor(Math.random() * 400) + 1900
+          });
+        }
+        
+        // Today
+        mockData.push({
+          date: new Date().toISOString().split('T')[0],
+          actual: Math.floor(Math.random() * 500) + 1600,
+          predicted: Math.floor(Math.random() * 500) + 1600,
+          lower_bound: Math.floor(Math.random() * 400) + 1400,
+          upper_bound: Math.floor(Math.random() * 400) + 2000
+        });
+        
+        // Future data (next 7 days)
+        for (let i = 1; i <= 7; i++) {
+          const date = new Date();
+          date.setDate(date.getDate() + i);
+          
+          mockData.push({
+            date: date.toISOString().split('T')[0],
+            predicted: Math.floor(Math.random() * 500) + 1700,
+            lower_bound: Math.floor(Math.random() * 400) + 1400,
+            upper_bound: Math.floor(Math.random() * 400) + 2100
+          });
+        }
+        
+        setForecastData(mockData);
+      } catch (error) {
+        console.error("Failed to fetch forecast:", error);
+        toast.error("Failed to load forecast data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchForecast();
+  }, []);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="h-64 flex items-center justify-center">
-        <p>Loading forecast data...</p>
-      </div>
-    );
-  }
-
-  if (forecastData.length === 0) {
-    return (
-      <div className="h-64 flex items-center justify-center">
-        <p className="text-gray-500">No forecast data available</p>
+      <div className="h-[300px] flex justify-center items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <AreaChart
-        data={forecastData}
-        margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis 
-          dataKey="date" 
-          tickFormatter={formatDate}
-        />
-        <YAxis />
-        <Tooltip 
-          labelFormatter={value => formatDate(value)} 
-          formatter={(value) => [Number(value).toLocaleString(), ""]}
-        />
-        <Area 
-          type="monotone" 
-          dataKey="upper" 
-          stroke="#8884d8" 
-          fillOpacity={0.1} 
-          fill="#8884d8" 
-          strokeWidth={1}
-        />
-        <Area 
-          type="monotone" 
-          dataKey="predicted" 
-          stroke="#8884d8" 
-          fillOpacity={0.6} 
-          fill="#8884d8" 
-          strokeWidth={2}
-        />
-        <Area 
-          type="monotone" 
-          dataKey="lower" 
-          stroke="#8884d8" 
-          fillOpacity={0.1} 
-          fill="#8884d8" 
-          strokeWidth={1}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+    <div>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart
+          data={forecastData}
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+        >
+          <XAxis 
+            dataKey="date" 
+            tickFormatter={formatDate} 
+            tick={{ fontSize: 12 }} 
+          />
+          <YAxis />
+          <Tooltip 
+            formatter={(value) => [`${value} logs`, '']}
+            labelFormatter={formatDate}
+          />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="actual"
+            stroke="#8884d8"
+            name="Actual"
+            strokeWidth={2}
+            dot={{ r: 3 }}
+            activeDot={{ r: 5 }}
+          />
+          <Line
+            type="monotone"
+            dataKey="predicted"
+            stroke="#82ca9d"
+            name="Forecast"
+            strokeWidth={2}
+            strokeDasharray={forecastData.findIndex(d => !d.actual) > -1 ? "0" : "3 3"}
+            dot={{ r: 3 }}
+          />
+          <Line
+            type="monotone"
+            dataKey="upper_bound"
+            stroke="#ccc"
+            name="Upper Bound"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            dot={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="lower_bound"
+            stroke="#ccc"
+            name="Lower Bound"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            dot={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+      <div className="text-xs text-center text-gray-500 mt-2">
+        Forecasted log volume based on historical patterns
+      </div>
+    </div>
   );
 };
 

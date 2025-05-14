@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 interface ApiOptions {
@@ -170,3 +169,26 @@ export const deleteAlert = async (id: number): Promise<void> => {
   });
 };
 
+// New API functions for AI features
+export interface AIQuery {
+  query: string;
+}
+
+export const nlQueryLogs = async (query: string) => {
+  return fetchApi('/ai/natural_language_query', {
+    method: 'POST',
+    body: { query }
+  });
+};
+
+export const getLogForecast = async () => {
+  return fetchApi('/ai/forecast');
+};
+
+export const getAnomalyExplanation = async (anomalyId: string) => {
+  return fetchApi(`/ai/explain_anomaly/${anomalyId}`);
+};
+
+export const getPatternExplanation = async (patternId: string) => {
+  return fetchApi(`/ai/explain_pattern/${patternId}`);
+};
