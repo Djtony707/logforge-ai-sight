@@ -21,7 +21,7 @@ const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => {
     if (!url) return;
 
     // For development without a real backend
-    const isDevelopment = process.env.NODE_ENV === "development";
+    const isDevelopment = process.env.NODE_ENV === "development" && !import.meta.env.VITE_API_URL;
     if (isDevelopment) {
       console.log(`[WebSocket] Development mode: Simulating connection to ${url}`);
       setIsConnected(true);
@@ -41,8 +41,8 @@ const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => {
             "Disk space warning",
             "Service restarted"
           ][Math.floor(Math.random() * 5)],
-          isAnomaly: Math.random() > 0.9,
-          anomalyScore: Math.random()
+          is_anomaly: Math.random() > 0.9,
+          anomaly_score: Math.random()
         };
         
         setLastMessage(JSON.stringify(mockData));
@@ -52,10 +52,17 @@ const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => {
     }
 
     try {
-      const ws = new WebSocket(url.startsWith("ws") ? url : `ws://${window.location.host}${url}`);
+      // Use API_URL from environment or default to current host
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+      const wsUrl = url.startsWith("ws") 
+        ? url 
+        : `${apiUrl.replace(/^http/, 'ws')}${url}`;
+      
+      console.log(`[WebSocket] Connecting to ${wsUrl}`);
+      const ws = new WebSocket(wsUrl);
       
       ws.onopen = () => {
-        console.log(`[WebSocket] Connected to ${url}`);
+        console.log(`[WebSocket] Connected to ${wsUrl}`);
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         if (options.onOpen) options.onOpen();
@@ -66,7 +73,7 @@ const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => {
       };
       
       ws.onclose = (event) => {
-        console.log(`[WebSocket] Disconnected from ${url}`, event.reason);
+        console.log(`[WebSocket] Disconnected from ${wsUrl}`, event.reason);
         setIsConnected(false);
         
         if (options.onClose) options.onClose();

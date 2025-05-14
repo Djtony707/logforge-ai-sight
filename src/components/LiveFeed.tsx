@@ -11,8 +11,8 @@ interface LogEntry {
   app: string;
   severity: "emergency" | "alert" | "critical" | "error" | "warning" | "notice" | "info" | "debug";
   msg: string;
-  isAnomaly?: boolean;
-  anomalyScore?: number;
+  is_anomaly?: boolean;
+  anomaly_score?: number;
 }
 
 const severityColors = {
@@ -28,7 +28,7 @@ const severityColors = {
 
 const LiveFeed = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const { lastMessage, isConnected } = useWebSocket("/api/ws/logs");
+  const { lastMessage, isConnected } = useWebSocket("/ws/logs");
   const [autoScroll, setAutoScroll] = useState(true);
 
   useEffect(() => {
@@ -88,7 +88,7 @@ const LiveFeed = () => {
               logs.map((log) => (
                 <TableRow 
                   key={log.id} 
-                  className={log.isAnomaly ? "bg-red-50" : undefined}
+                  className={log.is_anomaly ? "bg-red-50" : undefined}
                 >
                   <TableCell className="whitespace-nowrap">{formatTimestamp(log.ts)}</TableCell>
                   <TableCell className="whitespace-nowrap">{log.host}</TableCell>
@@ -99,9 +99,9 @@ const LiveFeed = () => {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-sm">
-                    {log.isAnomaly && (
+                    {log.is_anomaly && (
                       <Badge variant="outline" className="mr-2 border-red-300 text-red-700">
-                        Anomaly {log.anomalyScore?.toFixed(2)}
+                        Anomaly {log.anomaly_score?.toFixed(2)}
                       </Badge>
                     )}
                     {log.msg}

@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { CalendarIcon, Download, Search } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface LogEntry {
   id: string;
@@ -17,6 +18,8 @@ interface LogEntry {
   app: string;
   severity: "emergency" | "alert" | "critical" | "error" | "warning" | "notice" | "info" | "debug";
   msg: string;
+  is_anomaly?: boolean;
+  anomaly_score?: number;
 }
 
 interface SearchLogsProps {
@@ -46,37 +49,72 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [useRegex, setUseRegex] = useState(false);
+  const { toast } = useToast();
   
   const handleSearch = async () => {
     setIsLoading(true);
     try {
-      // This would be replaced with an actual API call in a real implementation
-      // Mock API call for demonstration
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // In development mode without backend, use mock data
+      if (process.env.NODE_ENV === "development" && !import.meta.env.VITE_API_URL) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const mockResults: LogEntry[] = Array(20).fill(0).map((_, i) => ({
+          id: `mock-${i}`,
+          ts: new Date(Date.now() - i * 3600000).toISOString(),
+          host: ["server1", "db-primary", "web-frontend"][i % 3] + ".example.com",
+          app: ["nginx", "postgres", "app-server"][i % 3],
+          severity: ["info", "warning", "error", "critical"][i % 4] as any,
+          msg: `Sample log message ${i} matching "${searchTerm}"`,
+          is_anomaly: i % 7 === 0,
+          anomaly_score: i % 7 === 0 ? Math.random() : undefined
+        }));
+        setSearchResults(mockResults);
+        return;
+      }
       
-      // Mock search results
-      const mockResults: LogEntry[] = [
-        {
-          id: "1",
-          ts: new Date().toISOString(),
-          host: "server1.example.com",
-          app: "nginx",
-          severity: "warning",
-          msg: "High CPU usage detected",
-        },
-        {
-          id: "2",
-          ts: new Date().toISOString(),
-          host: "db.example.com",
-          app: "postgres",
-          severity: "error",
-          msg: "Connection refused",
-        },
-      ];
+      // Real API call
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+      const token = localStorage.getItem('access_token');
       
-      setSearchResults(mockResults);
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "You must be logged in to search logs",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const response = await fetch(`${apiUrl}/logs/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          start_date: startDate?.toISOString(),
+          end_date: endDate?.toISOString(),
+          host: host || undefined,
+          app: app || undefined,
+          severity: severity === 'all' ? undefined : severity,
+          message: searchTerm || undefined,
+          use_regex: useRegex
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Search request failed with status: ${response.status}`);
+      }
+      
+      const results = await response.json();
+      setSearchResults(results);
     } catch (error) {
       console.error("Search failed:", error);
+      toast({
+        title: "Search Failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+      setSearchResults([]);
     } finally {
       setIsLoading(false);
     }
@@ -237,7 +275,7 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
             </TableHeader>
             <TableBody>
               {searchResults.map((log) => (
-                <TableRow key={log.id}>
+                <TableRow key={log.id} className={log.is_anomaly ? "bg-red-50" : undefined}>
                   <TableCell className="whitespace-nowrap">{formatTimestamp(log.ts)}</TableCell>
                   <TableCell className="whitespace-nowrap">{log.host}</TableCell>
                   <TableCell className="whitespace-nowrap">{log.app}</TableCell>
@@ -246,7 +284,14 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
                       {log.severity}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{log.msg}</TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {log.is_anomaly && (
+                      <Badge variant="outline" className="mr-2 border-red-300 text-red-700">
+                        Anomaly {log.anomaly_score?.toFixed(2)}
+                      </Badge>
+                    )}
+                    {log.msg}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
