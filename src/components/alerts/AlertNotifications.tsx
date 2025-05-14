@@ -3,9 +3,10 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, BellRing, X } from "lucide-react";
+import { AlertTriangle, BellRing, X, HelpCircle } from "lucide-react";
 import { severityColors } from "@/lib/constants";
 import { useAlertWebSocket, AlertNotification } from "@/hooks/useAlertWebSocket";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const AlertNotifications = () => {
   const { notifications, clearNotifications } = useAlertWebSocket();
@@ -17,7 +18,7 @@ const AlertNotifications = () => {
 
   return (
     <Card className={`fixed bottom-4 right-4 shadow-lg transition-all duration-300 z-50 ${
-      isMinimized ? 'w-14 h-14 overflow-hidden' : 'w-80'
+      isMinimized ? 'w-14 h-14 overflow-hidden' : 'w-full max-w-xs md:max-w-sm'
     }`}>
       {isMinimized ? (
         <Button 
@@ -44,22 +45,41 @@ const AlertNotifications = () => {
               </CardDescription>
             </div>
             <div className="flex gap-1">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setIsMinimized(true)}
-                className="h-8 w-8"
-              >
-                <BellRing className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={clearNotifications}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setIsMinimized(true)}
+                      className="h-8 w-8"
+                    >
+                      <BellRing className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Minimize notifications</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={clearNotifications}
+                      className="h-8 w-8"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Clear all notifications</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </CardHeader>
           <CardContent className="py-2 max-h-60 overflow-y-auto">

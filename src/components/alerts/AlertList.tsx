@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,9 +8,21 @@ import AlertCard from "@/components/alerts/AlertCard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAlerts, deleteAlert, updateAlert, Alert } from "@/lib/api";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const AlertList = () => {
   const queryClient = useQueryClient();
+  const [alertToDelete, setAlertToDelete] = useState<number | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   
   // Fetch alerts from the API with proper typing
   const { data: alerts, isLoading, error } = useQuery<Alert[]>({
@@ -24,11 +36,13 @@ const AlertList = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
       toast.success("Alert deleted successfully");
+      setConfirmDialogOpen(false);
     },
     onError: (error) => {
       toast.error("Failed to delete alert", {
         description: error instanceof Error ? error.message : "Unknown error",
       });
+      setConfirmDialogOpen(false);
     },
   });
 
@@ -46,9 +60,14 @@ const AlertList = () => {
     },
   });
 
-  const handleDelete = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this alert?")) {
-      deleteMutation.mutate(id);
+  const handleDeleteClick = (id: number) => {
+    setAlertToDelete(id);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (alertToDelete !== null) {
+      deleteMutation.mutate(alertToDelete);
     }
   };
 
@@ -88,18 +107,36 @@ const AlertList = () => {
   }
 
   return (
-    <div className="space-y-4">
-      {alerts.map((alert) => (
-        <AlertCard
-          key={alert.id}
-          alert={alert}
-          onDelete={() => handleDelete(alert.id)}
-          onToggleActive={() => handleToggleActive(alert.id, alert.is_active)}
-        />
-      ))}
-    </div>
+    <>
+      <div className="space-y-4">
+        {alerts.map((alert) => (
+          <AlertCard
+            key={alert.id}
+            alert={alert}
+            onDelete={() => handleDeleteClick(alert.id)}
+            onToggleActive={() => handleToggleActive(alert.id, alert.is_active)}
+          />
+        ))}
+      </div>
+      
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Alert</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this alert? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-500 hover:bg-red-600">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
 export default AlertList;
-
