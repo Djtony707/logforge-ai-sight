@@ -7,11 +7,15 @@ Single-box syslog dashboard that you can run with one command, then open a brows
 
 - **Real-time Log Monitoring**: View logs as they arrive via UDP/TCP syslog (port 514)
 - **Advanced Search**: Filter logs by time range, host, application, severity level, and message content
-- **AI-Powered Insights**: Anomaly detection, pattern analysis, and natural language queries
+- **AI-Powered Insights**: 
+  - Anomaly detection using IsolationForest algorithm
+  - Pattern analysis to group similar log entries
+  - Natural language queries powered by TinyLlama-1.1B
+  - Log volume forecasting with Prophet
 - **Alerting System**: Create custom alerts based on log patterns with real-time notifications
 - **Responsive Dashboard**: Modern UI that works on desktop and mobile devices
 - **Secure Access**: Role-based authentication with admin and viewer roles
-- **Local-only Processing**: All data stays on your server for maximum privacy
+- **Local-only Processing**: All data stays on your server for maximum privacy and security
 
 ## Quick Start (5 minutes)
 
@@ -86,18 +90,17 @@ Open your browser and navigate to http://your-server-ip:3000
 
 ## System Architecture
 
-![LogForge Architecture](https://your-image-url.com/logforge-architecture.png)
-
 LogForge AI is built with a modular architecture:
 
-- `/ingest` - Node.js syslog listener (UDP/TCP port 514)
-- `/db` - PostgreSQL 16 + TimescaleDB + pgvector for time-series and vector storage
-- `/api` - FastAPI backend with REST and WebSocket endpoints
-- `/ui` - React 18 frontend with Vite, TailwindCSS, and shadcn components
-- `/ai_anomaly` - Python IsolationForest for anomaly detection
-- `/ai_nl` - Ollama TinyLlama-1.1B for natural language processing
-- `/ai_forecast` - Prophet for log volume forecasting
-- `/ai_summary` - Optional Mistral-7B for advanced log summarization
+- **Ingest Service**: Node.js syslog listener (UDP/TCP port 514)
+- **Database**: PostgreSQL 16 + TimescaleDB + pgvector for time-series and vector storage
+- **API Service**: FastAPI backend with REST and WebSocket endpoints
+- **Frontend**: React 18 with TypeScript, Vite, TailwindCSS, and shadcn/ui components
+- **AI Services**:
+  - IsolationForest for anomaly detection (Python)
+  - Ollama with TinyLlama-1.1B for natural language processing
+  - Prophet for log volume forecasting
+  - Optional Mistral-7B for advanced log summarization
 
 ## Configuring Log Sources
 
@@ -120,6 +123,22 @@ Then restart rsyslog:
 sudo systemctl restart rsyslog
 ```
 
+### For systemd-journald:
+
+```bash
+# Install systemd-journal-remote
+sudo apt-get install -y systemd-journal-remote
+
+# Configure remote forwarding
+sudo tee /etc/systemd/journal-upload.conf > /dev/null <<EOT
+[Upload]
+URL=http://logforge-server-ip:19532
+EOT
+
+# Enable and start the service
+sudo systemctl enable --now systemd-journal-upload.service
+```
+
 ## Default Login Credentials
 
 - **Admin**: username `admin`, password `admin`
@@ -130,7 +149,7 @@ sudo systemctl restart rsyslog
 ## Hardware Requirements
 
 - **Minimum**: 8 CPU cores, 16 GB RAM
-- **Recommended**: 16 CPU cores, 32 GB RAM
+- **Recommended**: 16 CPU cores, 32 GB RAM, SSD storage
 
 ## AI Features
 
@@ -164,6 +183,14 @@ Based on historical data, the system predicts future log volume:
 - Trend identification
 - Anomaly detection based on expected patterns
 
+## Data Retention and Backup
+
+LogForge AI includes automatic database backup and log rotation:
+
+- Daily database backups (configurable retention period)
+- Automatic log rotation to prevent disk space issues
+- Easy restore process from backup files
+
 ## Troubleshooting
 
 ### Common Issues
@@ -171,16 +198,34 @@ Based on historical data, the system predicts future log volume:
 1. **Logs not appearing**:
    - Check if your source systems are correctly forwarding logs to port 514
    - Verify network connectivity and firewall settings
+   - Run `docker-compose logs ingest` to check for connection issues
 
 2. **High CPU/Memory usage**:
    - Adjust resource limits in docker-compose.yml
    - Consider disabling AI features if system resources are limited
+   - Monitor with `docker stats`
+
+3. **AI features not working**:
+   - Check if the AI services are running with `docker-compose ps`
+   - Inspect logs with `docker-compose logs ai_anomaly` or `docker-compose logs ai_nl`
+   - Verify database connectivity for AI services
 
 For more help, check the logs:
 ```bash
 docker-compose logs -f
 ```
 
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit your changes: `git commit -am 'Add some feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Submit a pull request
+
 ## License
 
 MIT License
+
