@@ -16,18 +16,8 @@ interface IndexProps {
 }
 
 const Index = ({ isLoggedIn, userRole, onLogin, onLogout }: IndexProps) => {
-  // No longer need these states as they're passed as props
-  // const [isAuthenticated, setIsAuthenticated] = useState(false);
-  // const [role, setRole] = useState<"admin" | "viewer" | null>(null);
-
-  const handleLogin = (role: "admin" | "viewer") => {
-    // Mock token for demo purposes
-    const mockToken = "mock-jwt-token-" + Date.now();
-    onLogin(mockToken, role);
-  };
-
   if (!isLoggedIn) {
-    return <LoginForm onLogin={handleLogin} />;
+    return <LoginForm onLogin={onLogin} />;
   }
 
   return (

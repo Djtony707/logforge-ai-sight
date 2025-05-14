@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { login } from "@/lib/api";
 
 interface LoginFormProps {
-  onLogin: (role: "admin" | "viewer") => void;
+  onLogin: (token: string, role: string) => void;
 }
 
 const LoginForm = ({ onLogin }: LoginFormProps) => {
@@ -26,9 +26,11 @@ const LoginForm = ({ onLogin }: LoginFormProps) => {
       
       // Simple validation for demo purposes
       if (username === "admin" && password === "admin") {
-        onLogin("admin");
+        const mockToken = "mock-jwt-token-admin-" + Date.now();
+        onLogin(mockToken, "admin");
       } else if (username === "viewer" && password === "viewer") {
-        onLogin("viewer");
+        const mockToken = "mock-jwt-token-viewer-" + Date.now();
+        onLogin(mockToken, "viewer");
       } else {
         setError("Invalid credentials");
       }
