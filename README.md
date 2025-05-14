@@ -1,73 +1,122 @@
-# Welcome to your Lovable project
 
-## Project info
+# LogForge AI
 
-**URL**: https://lovable.dev/projects/28a4f807-fe8b-4940-a974-ea5eea370904
+Single-box syslog dashboard that you can run with one command, then open a browser to see live logs, search history, and get local-only AI insights.
 
-## How can I edit this code?
+## Quick Start (5 minutes)
 
-There are several ways of editing your application.
+### Prerequisites
 
-**Use Lovable**
+- Ubuntu 20.04 LTS or newer
+- Docker and Docker Compose installed
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/28a4f807-fe8b-4940-a974-ea5eea370904) and start prompting.
+### Ubuntu Setup
 
-Changes made via Lovable will be committed automatically to this repo.
+1. Install Docker:
 
-**Use your preferred IDE**
+```bash
+# Update package index
+sudo apt-get update
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+# Install prerequisites
+sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# Add Docker's official GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 
-Follow these steps:
+# Add Docker repository
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Update package index again
+sudo apt-get update
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install Docker CE
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Add your user to the docker group to run docker without sudo
+sudo usermod -aG docker $USER
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Apply the new group membership (logout and login again or run the following)
+newgrp docker
 ```
 
-**Edit a file directly in GitHub**
+2. Install Docker Compose:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+# Download the current stable release of Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 
-**Use GitHub Codespaces**
+# Apply executable permissions
+sudo chmod +x /usr/local/bin/docker-compose
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Test the installation
+docker-compose --version
+```
 
-## What technologies are used for this project?
+### Starting LogForge AI
 
-This project is built with:
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/logforge-ai.git
+cd logforge-ai
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+2. Create an `.env` file:
+```bash
+cp .env.example .env
+# Edit the .env file with your preferred text editor
+nano .env
+```
 
-## How can I deploy this project?
+3. Start the application:
+```bash
+docker-compose up -d
+```
 
-Simply open [Lovable](https://lovable.dev/projects/28a4f807-fe8b-4940-a974-ea5eea370904) and click on Share -> Publish.
+4. Access the dashboard:
+Open your browser and navigate to http://localhost:3000
 
-## Can I connect a custom domain to my Lovable project?
+### Default Login Credentials
 
-Yes, you can!
+- Admin: username `admin`, password `admin`
+- Viewer: username `viewer`, password `viewer`
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Hardware Requirements
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- Minimum: 8 CPU cores, 16 GB RAM
+- Recommended: 16 CPU cores, 32 GB RAM
+
+## Enabling the AI Summarizer
+
+The AI summarizer (Mistral-7B) is disabled by default as it requires more resources.
+
+To enable it:
+
+1. Uncomment the `ai_summary` service in the `docker-compose.yml` file
+2. Adjust its resource limits if needed
+3. Restart the application:
+```bash
+docker-compose down
+docker-compose up -d
+```
+
+## Directory Structure
+
+- `/ingest` - Node.js syslog listener
+- `/db` - Database initialization scripts
+- `/api` - FastAPI backend
+- `/ui` - React frontend
+- `/ai_anomaly` - Anomaly detection service
+- `/ai_nl` - Natural language query processing
+- `/ai_forecast` - Log volume forecasting
+- `/ai_summary` - Optional log summarization (disabled by default)
+
+## Development
+
+Check the Makefile for development targets:
+
+```bash
+make dev    # Start development environment
+make test   # Run tests
+make prod   # Start production environment
+```

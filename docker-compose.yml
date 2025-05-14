@@ -1,0 +1,129 @@
+
+version: '3.8'
+
+services:
+  # Node.js UDP/TCP syslog listener
+  ingest:
+    build:
+      context: ./ingest
+    ports:
+      - "514:514/udp"
+      - "514:514/tcp"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # PostgreSQL 16 + TimescaleDB + pgvector
+  db:
+    image: timescale/timescaledb-ha:pg16-latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  # FastAPI, REST + WebSocket
+  api:
+    build:
+      context: ./api
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - JWT_EXPIRATION=${JWT_EXPIRATION}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # React 18 + Vite + Tailwind
+  ui:
+    build:
+      context: ./ui
+    ports:
+      - "3000:3000"
+    environment:
+      - API_URL=${API_URL}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Python IsolationForest, CPU-only
+  ai_anomaly:
+    build:
+      context: ./ai_anomaly
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - PROCESSING_INTERVAL=${ANOMALY_PROCESSING_INTERVAL}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # Ollama TinyLlama-1.1B, CPU-only
+  ai_nl:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    command: ["serve"]
+    restart: unless-stopped
+
+  # Prophet cron; CPU-only
+  ai_forecast:
+    build:
+      context: ./ai_forecast
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - FORECAST_INTERVAL=${FORECAST_INTERVAL}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # Optional Mistral-7B via llama.cpp; OFF by default
+  # Uncomment to enable
+  # ai_summary:
+  #   build:
+  #     context: ./ai_summary
+  #   environment:
+  #     - DB_HOST=db
+  #     - DB_PORT=5432
+  #     - DB_USER=${DB_USER}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     - DB_NAME=${DB_NAME}
+  #   depends_on:
+  #     - db
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '4'
+  #         memory: 8G
+
+volumes:
+  pgdata:
+  ollama_data:

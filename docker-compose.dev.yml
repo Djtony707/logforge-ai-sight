@@ -1,0 +1,19 @@
+
+version: '3.8'
+
+services:
+  ingest:
+    volumes:
+      - ./ingest:/app
+    command: ["npm", "run", "dev"]
+  
+  api:
+    volumes:
+      - ./api:/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+  
+  ui:
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev"]
