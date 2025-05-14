@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -20,7 +21,7 @@ const ForecastSection = () => {
     const fetchForecast = async () => {
       try {
         setLoading(true);
-        const data = await getLogForecast();
+        const data = await getLogForecast() as ForecastResponse;
         setForecastData(data);
       } catch (error) {
         console.error("Failed to fetch forecast data:", error);
