@@ -4,19 +4,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { fetchApi } from "@/lib/api";
-
-// Define the type for our API response
-interface NLQueryResponse {
-  results: Array<{
-    id: string;
-    ts: string;
-    host: string;
-    app: string;
-    severity: string;
-    msg: string;
-  }>;
-}
+import { nlQueryLogs, NLQueryResponse } from "@/lib/api";
 
 const NaturalLanguageSearch = () => {
   const [nlQuery, setNlQuery] = useState("");
@@ -31,19 +19,27 @@ const NaturalLanguageSearch = () => {
     
     try {
       // Call our AI backend service with proper typing
-      const response = await fetchApi<NLQueryResponse>('/ai/natural_language_query', {
-        method: 'POST',
-        body: { query: nlQuery }
-      });
+      const response = await nlQueryLogs(nlQuery);
       
       setResults(response.results || []);
       
-      toast.success("Query processed successfully");
+      if (response.results?.length === 0) {
+        toast.info("No results found for your query");
+      } else {
+        toast.success("Query processed successfully");
+      }
       
     } catch (error) {
       console.error("Error processing natural language query:", error);
       toast.error("Failed to process natural language query");
-      setResults(null);
+      
+      // For development purposes, generate mock results when the API fails
+      if (import.meta.env.DEV) {
+        const mockResults = generateMockResults(nlQuery);
+        setResults(mockResults);
+      } else {
+        setResults(null);
+      }
     } finally {
       setIsNlProcessing(false);
     }
@@ -127,5 +123,60 @@ const getSeverityColor = (severity: string) => {
       return 'bg-gray-100 text-gray-800';
   }
 };
+
+// Generate mock results for development purposes
+function generateMockResults(query: string) {
+  const now = new Date();
+  const hosts = ['db-server', 'app-server', 'auth-service', 'api-gateway', 'web-frontend'];
+  const apps = ['postgres', 'nginx', 'auth', 'api', 'react-app'];
+  const severities = ['info', 'warning', 'error', 'debug'];
+  
+  const queryLower = query.toLowerCase();
+  let filteredHosts = hosts;
+  let filteredApps = apps;
+  let filteredSeverities = severities;
+  
+  // Filter based on the query
+  if (queryLower.includes('database') || queryLower.includes('db')) {
+    filteredHosts = hosts.filter(h => h.includes('db'));
+    filteredApps = ['postgres', 'mysql', 'mongodb'];
+  }
+  
+  if (queryLower.includes('error')) {
+    filteredSeverities = ['error', 'critical'];
+  } else if (queryLower.includes('warning')) {
+    filteredSeverities = ['warning'];
+  }
+  
+  // Generate some random logs
+  return Array.from({ length: Math.floor(Math.random() * 10) + 1 }, (_, i) => {
+    const timestamp = new Date(now);
+    timestamp.setMinutes(now.getMinutes() - Math.floor(Math.random() * 60));
+    
+    const host = filteredHosts[Math.floor(Math.random() * filteredHosts.length)];
+    const app = filteredApps[Math.floor(Math.random() * filteredApps.length)];
+    const severity = filteredSeverities[Math.floor(Math.random() * filteredSeverities.length)];
+    
+    let msg = '';
+    if (severity === 'error') {
+      msg = `Failed to execute query: timeout after 30s`;
+    } else if (severity === 'warning') {
+      msg = `High CPU usage detected (89%)`;
+    } else if (severity === 'info') {
+      msg = `User session started: user_${Math.floor(Math.random() * 1000)}`;
+    } else {
+      msg = `Processing request ${Math.floor(Math.random() * 10000)}`;
+    }
+    
+    return {
+      id: `mock-${i}-${Date.now()}`,
+      ts: timestamp.toISOString(),
+      host,
+      app,
+      severity,
+      msg
+    };
+  });
+}
 
 export default NaturalLanguageSearch;
