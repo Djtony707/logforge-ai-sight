@@ -7,6 +7,7 @@ import SearchLogs from "@/components/SearchLogs";
 import AIInsights from "@/components/AIInsights";
 import LoginForm from "@/components/LoginForm";
 import Dashboard from "@/components/Dashboard";
+import AdminSettings from "@/components/AdminSettings";
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -47,10 +48,7 @@ const Index = () => {
         {role === "admin" && (
           <TabsContent value="admin" className="space-y-4">
             <div className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-2xl font-bold mb-4">Admin Settings</h2>
-              <p className="text-gray-600 mb-4">Configure system settings and alerts</p>
-              {/* Admin settings will be implemented later */}
-              <Button variant="outline">Configure Alerts</Button>
+              <AdminSettings />
             </div>
           </TabsContent>
         )}

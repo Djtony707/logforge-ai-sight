@@ -120,3 +120,36 @@ export const searchLogs = async (params: SearchLogsParams) => {
     body: params,
   });
 };
+
+// New API functions for alerts
+export const getAlerts = async () => {
+  return fetchApi("/alerts");
+};
+
+export interface NewAlert {
+  name: string;
+  description: string;
+  severity: string;
+  query: string;
+  is_active: boolean;
+}
+
+export const createAlert = async (alert: NewAlert) => {
+  return fetchApi("/alerts", {
+    method: "POST",
+    body: alert,
+  });
+};
+
+export const updateAlert = async (id: number, data: Partial<NewAlert>) => {
+  return fetchApi(`/alerts/${id}`, {
+    method: "PATCH",
+    body: data,
+  });
+};
+
+export const deleteAlert = async (id: number) => {
+  return fetchApi(`/alerts/${id}`, {
+    method: "DELETE",
+  });
+};
