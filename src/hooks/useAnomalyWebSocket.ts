@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import useWebSocket from "./useWebSocket";
+import { getRecentAnomalies } from "@/lib/api";
 
 export interface Anomaly {
   id: string;
@@ -14,13 +15,36 @@ export interface Anomaly {
 
 export const useAnomalyWebSocket = (maxAnomalies: number = 20) => {
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-  const { lastMessage } = useWebSocket("/api/ws/anomalies");
+  const { lastMessage, isConnected } = useWebSocket("/ws/anomalies");
+  
+  // Load initial anomalies when component mounts
+  useEffect(() => {
+    const loadInitialAnomalies = async () => {
+      try {
+        const recentAnomalies = await getRecentAnomalies(maxAnomalies);
+        if (recentAnomalies && recentAnomalies.length > 0) {
+          setAnomalies(recentAnomalies);
+        }
+      } catch (error) {
+        console.error("Failed to load initial anomalies:", error);
+      }
+    };
+    
+    loadInitialAnomalies();
+  }, [maxAnomalies]);
 
+  // Handle new anomalies from WebSocket
   useEffect(() => {
     if (lastMessage) {
       try {
         const newAnomaly = JSON.parse(lastMessage);
-        setAnomalies(prev => [newAnomaly, ...prev.slice(0, maxAnomalies - 1)]);
+        // Check if anomaly already exists to avoid duplicates
+        setAnomalies(prev => {
+          if (prev.some(a => a.id === newAnomaly.id)) {
+            return prev;
+          }
+          return [newAnomaly, ...prev.slice(0, maxAnomalies - 1)];
+        });
       } catch (error) {
         console.error("Failed to parse anomaly message:", error);
       }
@@ -29,6 +53,7 @@ export const useAnomalyWebSocket = (maxAnomalies: number = 20) => {
 
   return {
     anomalies,
+    isConnected,
     clearAnomalies: () => setAnomalies([])
   };
 };

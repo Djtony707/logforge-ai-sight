@@ -5,27 +5,34 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCcw, AlertTriangle } from "lucide-react";
 import AnomalyDisplay from "@/components/ai/AnomalyDisplay";
+import { getAnomalyExplanation } from "@/lib/api";
+import { toast } from "sonner";
 
 const AnomalySection = () => {
   const { anomalies, clearAnomalies } = useAnomalyWebSocket(10);
   const [isExplaining, setIsExplaining] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
+  const [selectedAnomaly, setSelectedAnomaly] = useState<string | null>(null);
 
   const handleExplain = async () => {
     if (anomalies.length === 0 || isExplaining) return;
     
     setIsExplaining(true);
+    setExplanation(null);
     
     try {
-      // Simulate API call for demo
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setExplanation(
-        "Recent anomalies appear to be related to spike in database connection failures. " +
-        "This could indicate a potential issue with the database server or connection pool configuration. " +
-        "Recommendation: Check database server health and connection settings."
-      );
+      // Select the most recent anomaly
+      const latestAnomaly = anomalies[0];
+      setSelectedAnomaly(latestAnomaly.id);
+      
+      // Call the API to get an explanation
+      const response = await getAnomalyExplanation(latestAnomaly.id);
+      setExplanation(response.explanation);
     } catch (error) {
       console.error("Failed to get anomaly explanation:", error);
+      toast.error("Failed to analyze anomaly", {
+        description: "Could not retrieve explanation from the server"
+      });
     } finally {
       setIsExplaining(false);
     }

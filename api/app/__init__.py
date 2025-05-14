@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import asyncpg
+from datetime import date, datetime
 
 # Initialize FastAPI app
 app = FastAPI(title="LogForge API", version="1.0.0")
@@ -41,3 +42,9 @@ async def shutdown_db_client():
     if db_pool:
         await db_pool.close()
 
+# Add JSON serialization helper for datetime objects
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError("Type not serializable")

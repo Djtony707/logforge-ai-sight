@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 
 interface ApiOptions {
@@ -155,7 +156,7 @@ export const getLogPatterns = async () => {
   return fetchApi("/logs/patterns");
 };
 
-// New API functions for alerts
+// Alert API functions
 export interface Alert {
   id: number;
   name: string;
@@ -199,7 +200,7 @@ export const deleteAlert = async (id: number): Promise<void> => {
   });
 };
 
-// New API functions for AI features
+// AI API functions
 export interface AIQuery {
   query: string;
 }
@@ -216,9 +217,14 @@ export const getLogForecast = async () => {
 };
 
 export const getAnomalyExplanation = async (anomalyId: string) => {
-  return fetchApi(`/ai/explain_anomaly/${anomalyId}`);
+  return fetchApi(`/anomalies/explain/${anomalyId}`);
 };
 
 export const getPatternExplanation = async (patternId: string) => {
   return fetchApi(`/ai/explain_pattern/${patternId}`);
+};
+
+// Get recent anomalies
+export const getRecentAnomalies = async (limit = 10) => {
+  return fetchApi(`/anomalies/recent?limit=${limit}`);
 };
