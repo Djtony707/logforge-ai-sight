@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, FileJson, FileCsv } from "lucide-react";
+import { Plus, File, Files } from "lucide-react";
 import AlertForm from "@/components/alerts/AlertForm";
 import AlertList from "@/components/alerts/AlertList";
 import { useQuery } from "@tanstack/react-query";
@@ -95,7 +95,7 @@ const AdminSettings = () => {
                               className="flex items-center gap-2"
                               disabled={isExporting}
                             >
-                              <FileCsv className="h-4 w-4" />
+                              <Files className="h-4 w-4" />
                               Export CSV
                             </Button>
                           </AlertDialogTrigger>
@@ -131,7 +131,7 @@ const AdminSettings = () => {
                               className="flex items-center gap-2"
                               disabled={isExporting}
                             >
-                              <FileJson className="h-4 w-4" />
+                              <File className="h-4 w-4" />
                               Export JSON
                             </Button>
                           </AlertDialogTrigger>

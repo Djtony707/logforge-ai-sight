@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { FileJson, FileCsv, Download } from "lucide-react";
+import { File, Files, Download } from "lucide-react";
 import { LogEntry } from "./SearchResults";
 import { 
   AlertDialog,
@@ -92,7 +92,7 @@ const ExportButtons = ({ results, searchParams }: ExportButtonsProps) => {
             <TooltipTrigger asChild>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" onClick={() => setFormat("csv")} disabled={isExporting}>
-                  <FileCsv className="mr-2 h-4 w-4" />
+                  <Files className="mr-2 h-4 w-4" />
                   Export CSV
                 </Button>
               </AlertDialogTrigger>
@@ -125,7 +125,7 @@ const ExportButtons = ({ results, searchParams }: ExportButtonsProps) => {
             <TooltipTrigger asChild>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" onClick={() => setFormat("json")} disabled={isExporting}>
-                  <FileJson className="mr-2 h-4 w-4" />
+                  <File className="mr-2 h-4 w-4" />
                   Export JSON
                 </Button>
               </AlertDialogTrigger>
