@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { getLogForecast, ForecastResponse } from "@/lib/api";
+import { getLogForecast } from "@/lib/api";
+import { ForecastResponse } from "@/lib/api/types";
 import { toast } from "sonner";
 
 const ForecastSection = () => {

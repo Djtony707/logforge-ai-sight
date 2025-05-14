@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { nlQueryLogs, NLQueryResponse } from "@/lib/api";
+import { nlQueryLogs } from "@/lib/api";
+import { NLQueryResponse } from "@/lib/api/types";
 
 const NaturalLanguageSearch = () => {
   const [nlQuery, setNlQuery] = useState("");
@@ -19,7 +19,7 @@ const NaturalLanguageSearch = () => {
     
     try {
       // Call our AI backend service with proper typing
-      const response = await nlQueryLogs(nlQuery);
+      const response = await nlQueryLogs(nlQuery) as NLQueryResponse;
       
       setResults(response.results || []);
       

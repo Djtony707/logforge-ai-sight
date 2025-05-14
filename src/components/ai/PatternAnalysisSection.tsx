@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { getLogPatterns, getPatternExplanation, PatternExplanationResponse } from "@/lib/api";
+import { getLogPatterns, getPatternExplanation } from "@/lib/api";
+import { PatternExplanationResponse } from "@/lib/api/types";
 
 interface LogPattern {
   pattern: string;
@@ -30,7 +31,7 @@ const PatternAnalysisSection = () => {
   useEffect(() => {
     const fetchPatterns = async () => {
       try {
-        const data = await getLogPatterns();
+        const data = await getLogPatterns() as LogPattern[];
         setPatterns(data);
       } catch (error) {
         console.error("Failed to fetch log patterns:", error);
@@ -54,7 +55,7 @@ const PatternAnalysisSection = () => {
     
     try {
       // Try to get a real explanation from the API
-      const data = await getPatternExplanation(patternId);
+      const data = await getPatternExplanation(patternId) as PatternExplanationResponse;
       setExplanations(prev => ({ 
         ...prev, 
         [patternId]: data.explanation 
