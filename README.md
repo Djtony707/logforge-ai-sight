@@ -3,6 +3,16 @@
 
 Single-box syslog dashboard that you can run with one command, then open a browser to see live logs, search history, and get local-only AI insights.
 
+## Features
+
+- **Real-time Log Monitoring**: View logs as they arrive via UDP/TCP syslog (port 514)
+- **Advanced Search**: Filter logs by time range, host, application, severity level, and message content
+- **AI-Powered Insights**: Anomaly detection, pattern analysis, and natural language queries
+- **Alerting System**: Create custom alerts based on log patterns with real-time notifications
+- **Responsive Dashboard**: Modern UI that works on desktop and mobile devices
+- **Secure Access**: Role-based authentication with admin and viewer roles
+- **Local-only Processing**: All data stays on your server for maximum privacy
+
 ## Quick Start (5 minutes)
 
 ### Prerequisites
@@ -22,10 +32,10 @@ sudo apt-get update
 sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 
 # Add Docker's official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
 # Add Docker repository
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Update package index again
 sudo apt-get update
@@ -53,7 +63,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 docker-compose --version
 ```
 
-### Starting LogForge AI
+### Setting up LogForge AI
 
 1. Clone the repository:
 ```bash
@@ -61,7 +71,7 @@ git clone https://github.com/yourusername/logforge-ai.git
 cd logforge-ai
 ```
 
-2. Create an `.env` file:
+2. Create and configure the `.env` file:
 ```bash
 cp .env.example .env
 # Edit the .env file with your preferred text editor
@@ -74,17 +84,40 @@ docker-compose up -d
 ```
 
 4. Access the dashboard:
-Open your browser and navigate to http://localhost:3000
+Open your browser and navigate to http://your-server-ip:3000
+
+### Configuring Log Sources
+
+To send logs to LogForge AI, configure your systems to forward syslog messages to your LogForge server:
+
+#### For rsyslog (most Linux distributions):
+
+Add this to `/etc/rsyslog.conf` or create a new file in `/etc/rsyslog.d/`:
+
+```
+# Send logs to LogForge AI
+*.* @logforge-server-ip:514  # UDP
+# OR
+*.* @@logforge-server-ip:514  # TCP
+```
+
+Then restart rsyslog:
+
+```bash
+sudo systemctl restart rsyslog
+```
 
 ### Default Login Credentials
 
-- Admin: username `admin`, password `admin`
-- Viewer: username `viewer`, password `viewer`
+- **Admin**: username `admin`, password `admin`
+- **Viewer**: username `viewer`, password `viewer`
+
+**Important**: Change these default credentials after first login!
 
 ## Hardware Requirements
 
-- Minimum: 8 CPU cores, 16 GB RAM
-- Recommended: 16 CPU cores, 32 GB RAM
+- **Minimum**: 8 CPU cores, 16 GB RAM
+- **Recommended**: 16 CPU cores, 32 GB RAM
 
 ## AI Features
 
@@ -114,6 +147,15 @@ LogForge AI includes several powerful AI capabilities to help you analyze and un
 - Helps with capacity planning and anomaly detection
 - 7-day forecast updated daily
 
+## Alerting System
+
+Create custom alerts based on log patterns:
+
+- Define alert severity levels (info, warning, error, critical)
+- Set query patterns to match against incoming logs
+- Receive real-time notifications when alerts are triggered
+- View alert history and manage notifications
+
 ## Enabling the AI Summarizer
 
 The AI summarizer (Mistral-7B) is disabled by default as it requires more resources.
@@ -128,16 +170,16 @@ docker-compose down
 docker-compose up -d
 ```
 
-## Directory Structure
+## System Architecture
 
-- `/ingest` - Node.js syslog listener
-- `/db` - Database initialization scripts
-- `/api` - FastAPI backend
-- `/ui` - React frontend
-- `/ai_anomaly` - Anomaly detection service
-- `/ai_nl` - Natural language query processing
-- `/ai_forecast` - Log volume forecasting
-- `/ai_summary` - Optional log summarization (disabled by default)
+- `/ingest` - Node.js syslog listener (UDP/TCP port 514)
+- `/db` - PostgreSQL 16 + TimescaleDB + pgvector for time-series and vector storage
+- `/api` - FastAPI backend with REST and WebSocket endpoints
+- `/ui` - React 18 frontend with Vite, TailwindCSS, and shadcn components
+- `/ai_anomaly` - Python IsolationForest for anomaly detection
+- `/ai_nl` - Ollama TinyLlama-1.1B for natural language processing
+- `/ai_forecast` - Prophet for log volume forecasting
+- `/ai_summary` - Optional Mistral-7B for advanced log summarization
 
 ## Development
 
@@ -147,4 +189,33 @@ Check the Makefile for development targets:
 make dev    # Start development environment
 make test   # Run tests
 make prod   # Start production environment
+make clean  # Clean up containers and volumes
 ```
+
+## Security Considerations
+
+- Change the default credentials immediately after installation
+- For production use, configure proper firewalls to restrict access to ports
+- Consider running behind a reverse proxy with HTTPS for secure remote access
+- Regularly update the system and docker images
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Logs not appearing**:
+   - Check if your source systems are correctly forwarding logs to port 514
+   - Verify network connectivity and firewall settings
+
+2. **High CPU/Memory usage**:
+   - Adjust resource limits in docker-compose.yml
+   - Consider disabling AI features if system resources are limited
+
+For more help, check the logs:
+```bash
+docker-compose logs -f
+```
+
+## License
+
+MIT License
