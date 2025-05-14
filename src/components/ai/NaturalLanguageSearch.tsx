@@ -6,10 +6,22 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { fetchApi } from "@/lib/api";
 
+// Define the type for our API response
+interface NLQueryResponse {
+  results: Array<{
+    id: string;
+    ts: string;
+    host: string;
+    app: string;
+    severity: string;
+    msg: string;
+  }>;
+}
+
 const NaturalLanguageSearch = () => {
   const [nlQuery, setNlQuery] = useState("");
   const [isNlProcessing, setIsNlProcessing] = useState(false);
-  const [results, setResults] = useState<any[] | null>(null);
+  const [results, setResults] = useState<Array<any> | null>(null);
 
   const handleNlSearch = async () => {
     if (!nlQuery.trim()) return;
@@ -18,8 +30,8 @@ const NaturalLanguageSearch = () => {
     setResults(null);
     
     try {
-      // Call our AI backend service
-      const response = await fetchApi('/ai/natural_language_query', {
+      // Call our AI backend service with proper typing
+      const response = await fetchApi<NLQueryResponse>('/ai/natural_language_query', {
         method: 'POST',
         body: { query: nlQuery }
       });
