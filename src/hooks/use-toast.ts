@@ -1,11 +1,16 @@
 
 import { toast as sonnerToast } from "sonner";
+import { useState, useEffect } from "react";
 
-type ToastProps = {
+export type ToastProps = {
+  id?: string;
   title?: string;
   description?: string;
+  action?: React.ReactNode;
   variant?: "default" | "destructive";
 };
+
+type ToastState = ToastProps[];
 
 export function toast({ title, description, variant }: ToastProps) {
   // Map our variant to sonner variant
@@ -16,13 +21,16 @@ export function toast({ title, description, variant }: ToastProps) {
   });
 }
 
-type ToastActionElement = React.ReactElement;
+export type { ToastState as ToastActionElement };
 
 export const useToast = () => {
+  // This is a mock implementation to satisfy the Toaster component
+  // while still using Sonner for actual toast rendering
+  const [toasts, setToasts] = useState<ToastState>([]);
+  
   return {
     toast,
     dismiss: sonnerToast.dismiss,
+    toasts: toasts,
   };
 };
-
-export type { ToastProps, ToastActionElement };

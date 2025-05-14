@@ -2,7 +2,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { API_URL } from './lib/api';
-import { Toaster } from "@/components/ui/toaster"; // Add Toaster component
 
 // Pages
 import Index from './pages/Index';
@@ -66,7 +65,6 @@ function App() {
         />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <Toaster /> {/* Add Toaster component for toast notifications */}
     </Router>
   );
 }
