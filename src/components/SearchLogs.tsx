@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +37,7 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [useRegex, setUseRegex] = useState(false);
-  const { toast } = useToast();
+  const toast = useToast();
   
   const searchMutation = useMutation({
     mutationFn: async (params: SearchLogsParams) => {
@@ -49,18 +48,11 @@ const SearchLogs = ({ role }: SearchLogsProps) => {
     },
     onSuccess: (data) => {
       setSearchResults(data);
-      toast({
-        title: "Search completed",
-        description: `Found ${data.length} results`,
-      });
+      toast.success("Search completed", `Found ${data.length} results`);
     },
     onError: (error) => {
       console.error("Search failed:", error);
-      toast({
-        title: "Search Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
+      toast.error("Search Failed", error instanceof Error ? error.message : "An unknown error occurred");
       setSearchResults([]);
     }
   });

@@ -6,9 +6,7 @@ import { toast } from "sonner";
 export const useToast = () => {
   const { toast: originalToast } = useToastHook();
   
-  return {
-    ...originalToast,
-    
+  return {    
     // System notifications
     system: (title: string, message?: string) => {
       toast(title, {
@@ -65,14 +63,14 @@ export const useToast = () => {
       }
     ) => {
       return toast.promise(promise, {
-        loading: { title: loading },
+        loading: { description: loading },
         success: {
-          title: typeof success === "function" 
+          description: typeof success === "function" 
             ? (data) => success(data as T) 
             : success,
         },
         error: {
-          title: typeof error === "function" 
+          description: typeof error === "function" 
             ? (err) => error(err) 
             : error,
         },

@@ -1,6 +1,6 @@
 
 import { toast as sonnerToast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export type ToastProps = {
   id?: string;
@@ -26,7 +26,7 @@ export type { ToastState as ToastActionElement };
 export const useToast = () => {
   // This is a mock implementation to satisfy the Toaster component
   // while still using Sonner for actual toast rendering
-  const [toasts, setToasts] = useState<ToastState>([]);
+  const [toasts] = useState<ToastState>([]);
   
   return {
     toast,
