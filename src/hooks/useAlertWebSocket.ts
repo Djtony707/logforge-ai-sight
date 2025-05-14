@@ -1,17 +1,7 @@
 
 import { useState, useEffect } from "react";
 import useWebSocket from "./useWebSocket";
-
-export interface Alert {
-  id: number;
-  name: string;
-  description: string;
-  severity: string;
-  query: string;
-  is_active: boolean;
-  created_at: string;
-  last_triggered?: string;
-}
+import { Alert } from "@/lib/api";
 
 export interface AlertNotification {
   alert_id: number;

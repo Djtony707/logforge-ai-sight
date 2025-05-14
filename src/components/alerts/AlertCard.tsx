@@ -6,17 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { FileText, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { severityColors } from "@/lib/constants";
-
-interface Alert {
-  id: number;
-  name: string;
-  description: string;
-  severity: string;
-  query: string;
-  is_active: boolean;
-  created_at: string;
-  last_triggered?: string;
-}
+import { Alert } from "@/lib/api";
 
 interface AlertCardProps {
   alert: Alert;
@@ -89,3 +79,4 @@ const AlertCard = ({ alert, onDelete, onToggleActive }: AlertCardProps) => {
 };
 
 export default AlertCard;
+

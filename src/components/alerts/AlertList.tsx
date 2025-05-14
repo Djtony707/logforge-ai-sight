@@ -6,19 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Trash2 } from "lucide-react";
 import AlertCard from "@/components/alerts/AlertCard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAlerts, deleteAlert, updateAlert } from "@/lib/api";
-import { toast } from "@/components/ui/sonner";
-
-export interface Alert {
-  id: number;
-  name: string;
-  description: string;
-  severity: string;
-  query: string;
-  is_active: boolean;
-  created_at: string;
-  last_triggered?: string;
-}
+import { getAlerts, deleteAlert, updateAlert, Alert } from "@/lib/api";
+import { toast } from "sonner";
 
 const AlertList = () => {
   const queryClient = useQueryClient();
@@ -100,7 +89,7 @@ const AlertList = () => {
 
   return (
     <div className="space-y-4">
-      {alerts.map((alert: Alert) => (
+      {alerts.map((alert) => (
         <AlertCard
           key={alert.id}
           alert={alert}
@@ -113,3 +102,4 @@ const AlertList = () => {
 };
 
 export default AlertList;
+

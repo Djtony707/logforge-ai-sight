@@ -127,8 +127,19 @@ export const getLogPatterns = async () => {
 };
 
 // New API functions for alerts
-export const getAlerts = async () => {
-  return fetchApi("/alerts");
+export interface Alert {
+  id: number;
+  name: string;
+  description: string;
+  severity: string;
+  query: string;
+  is_active: boolean;
+  created_at: string;
+  last_triggered?: string;
+}
+
+export const getAlerts = async (): Promise<Alert[]> => {
+  return fetchApi<Alert[]>("/alerts");
 };
 
 export interface NewAlert {
@@ -139,22 +150,23 @@ export interface NewAlert {
   is_active: boolean;
 }
 
-export const createAlert = async (alert: NewAlert) => {
-  return fetchApi("/alerts", {
+export const createAlert = async (alert: NewAlert): Promise<Alert> => {
+  return fetchApi<Alert>("/alerts", {
     method: "POST",
     body: alert,
   });
 };
 
-export const updateAlert = async (id: number, data: Partial<NewAlert>) => {
-  return fetchApi(`/alerts/${id}`, {
+export const updateAlert = async (id: number, data: Partial<NewAlert>): Promise<Alert> => {
+  return fetchApi<Alert>(`/alerts/${id}`, {
     method: "PATCH",
     body: data,
   });
 };
 
-export const deleteAlert = async (id: number) => {
-  return fetchApi(`/alerts/${id}`, {
+export const deleteAlert = async (id: number): Promise<void> => {
+  return fetchApi<void>(`/alerts/${id}`, {
     method: "DELETE",
   });
 };
+
