@@ -2,16 +2,13 @@
 {
   "name": "logforge-ingest",
   "version": "1.0.0",
-  "description": "Syslog UDP/TCP listener for LogForge",
+  "description": "Syslog ingestion service for LogForge",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start": "node src/index.js"
   },
   "dependencies": {
-    "pg": "^8.11.3"
-  },
-  "devDependencies": {
-    "nodemon": "^2.0.22"
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1"
   }
 }
