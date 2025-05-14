@@ -23,8 +23,8 @@ export interface Alert {
 const AlertList = () => {
   const queryClient = useQueryClient();
   
-  // Fetch alerts from the API
-  const { data: alerts, isLoading, error } = useQuery({
+  // Fetch alerts from the API with proper typing
+  const { data: alerts, isLoading, error } = useQuery<Alert[]>({
     queryKey: ['alerts'],
     queryFn: getAlerts,
   });
