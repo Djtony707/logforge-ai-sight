@@ -20,9 +20,7 @@ Single-box syslog dashboard that you can run with one command, then open a brows
 - Ubuntu 20.04 LTS or newer
 - Docker and Docker Compose installed
 
-### Ubuntu Setup
-
-1. Install Docker:
+### Step 1: Install Docker
 
 ```bash
 # Update package index
@@ -50,7 +48,7 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-2. Install Docker Compose:
+### Step 2: Install Docker Compose
 
 ```bash
 # Download the current stable release of Docker Compose
@@ -63,7 +61,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 docker-compose --version
 ```
 
-### Setting up LogForge AI
+### Step 3: Deploy LogForge AI
 
 1. Clone the repository:
 ```bash
@@ -86,11 +84,26 @@ docker-compose up -d
 4. Access the dashboard:
 Open your browser and navigate to http://your-server-ip:3000
 
-### Configuring Log Sources
+## System Architecture
+
+![LogForge Architecture](https://your-image-url.com/logforge-architecture.png)
+
+LogForge AI is built with a modular architecture:
+
+- `/ingest` - Node.js syslog listener (UDP/TCP port 514)
+- `/db` - PostgreSQL 16 + TimescaleDB + pgvector for time-series and vector storage
+- `/api` - FastAPI backend with REST and WebSocket endpoints
+- `/ui` - React 18 frontend with Vite, TailwindCSS, and shadcn components
+- `/ai_anomaly` - Python IsolationForest for anomaly detection
+- `/ai_nl` - Ollama TinyLlama-1.1B for natural language processing
+- `/ai_forecast` - Prophet for log volume forecasting
+- `/ai_summary` - Optional Mistral-7B for advanced log summarization
+
+## Configuring Log Sources
 
 To send logs to LogForge AI, configure your systems to forward syslog messages to your LogForge server:
 
-#### For rsyslog (most Linux distributions):
+### For rsyslog (most Linux distributions):
 
 Add this to `/etc/rsyslog.conf` or create a new file in `/etc/rsyslog.d/`:
 
@@ -107,7 +120,7 @@ Then restart rsyslog:
 sudo systemctl restart rsyslog
 ```
 
-### Default Login Credentials
+## Default Login Credentials
 
 - **Admin**: username `admin`, password `admin`
 - **Viewer**: username `viewer`, password `viewer`
@@ -121,83 +134,35 @@ sudo systemctl restart rsyslog
 
 ## AI Features
 
-LogForge AI includes several powerful AI capabilities to help you analyze and understand your logs:
-
-### Real-time Anomaly Detection
-
-- Automatically identifies unusual log patterns that may indicate issues
-- Uses statistical and machine learning techniques to detect outliers
-- Updates in real-time as new logs arrive
-
-### Pattern Analysis
-
-- Groups similar log entries together to identify recurring patterns
-- Replaces variable data with placeholders for easier recognition
-- Shows frequency and examples of each detected pattern
+LogForge AI includes several powerful AI capabilities:
 
 ### Natural Language Queries
 
-- Ask questions about your logs in plain English
+Ask questions about your logs in plain English:
 - "Show me all failed login attempts in the last hour"
 - "What are the top error messages today?"
+- "Find all high CPU usage warnings from web servers"
+
+### Real-time Anomaly Detection
+
+The system automatically identifies unusual log patterns that may indicate issues:
+- Statistical outlier detection for log volume
+- Pattern-based anomaly detection for message content
+- Context-aware severity assessment
+
+### Pattern Analysis
+
+LogForge AI analyzes your log data to identify recurring patterns:
+- Groups similar log entries together
+- Replaces variable data with placeholders
+- Shows frequency and examples of each pattern
 
 ### Log Volume Forecasting
 
-- Predicts future log volume based on historical data
-- Helps with capacity planning and anomaly detection
-- 7-day forecast updated daily
-
-## Alerting System
-
-Create custom alerts based on log patterns:
-
-- Define alert severity levels (info, warning, error, critical)
-- Set query patterns to match against incoming logs
-- Receive real-time notifications when alerts are triggered
-- View alert history and manage notifications
-
-## Enabling the AI Summarizer
-
-The AI summarizer (Mistral-7B) is disabled by default as it requires more resources.
-
-To enable it:
-
-1. Uncomment the `ai_summary` service in the `docker-compose.yml` file
-2. Adjust its resource limits if needed
-3. Restart the application:
-```bash
-docker-compose down
-docker-compose up -d
-```
-
-## System Architecture
-
-- `/ingest` - Node.js syslog listener (UDP/TCP port 514)
-- `/db` - PostgreSQL 16 + TimescaleDB + pgvector for time-series and vector storage
-- `/api` - FastAPI backend with REST and WebSocket endpoints
-- `/ui` - React 18 frontend with Vite, TailwindCSS, and shadcn components
-- `/ai_anomaly` - Python IsolationForest for anomaly detection
-- `/ai_nl` - Ollama TinyLlama-1.1B for natural language processing
-- `/ai_forecast` - Prophet for log volume forecasting
-- `/ai_summary` - Optional Mistral-7B for advanced log summarization
-
-## Development
-
-Check the Makefile for development targets:
-
-```bash
-make dev    # Start development environment
-make test   # Run tests
-make prod   # Start production environment
-make clean  # Clean up containers and volumes
-```
-
-## Security Considerations
-
-- Change the default credentials immediately after installation
-- For production use, configure proper firewalls to restrict access to ports
-- Consider running behind a reverse proxy with HTTPS for secure remote access
-- Regularly update the system and docker images
+Based on historical data, the system predicts future log volume:
+- 7-day predictive forecast
+- Trend identification
+- Anomaly detection based on expected patterns
 
 ## Troubleshooting
 
