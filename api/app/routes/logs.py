@@ -4,6 +4,7 @@ from typing import Annotated, Dict, List
 import asyncio
 import asyncpg
 import json
+import os
 
 from .. import app, db_pool
 from ..models import LogSearch
@@ -86,6 +87,26 @@ async def get_log_stats(current_user: Annotated[dict, Depends(get_current_active
         "anomaly_count": anomaly_count
     }
 
+@app.get("/logs/anomalies")
+async def get_recent_anomalies(current_user: Annotated[dict, Depends(get_current_active_user)]):
+    """Get the most recent anomalies for analysis."""
+    async with db_pool.acquire() as conn:
+        anomalies = await conn.fetch(
+            "SELECT id, ts, host, app, severity, msg, anomaly_score "
+            "FROM logs WHERE is_anomaly = TRUE ORDER BY ts DESC LIMIT 20"
+        )
+        return [dict(a) for a in anomalies]
+
+@app.get("/logs/forecast")
+async def get_log_forecast(current_user: Annotated[dict, Depends(get_current_active_user)]):
+    """Get the forecast data for log volume."""
+    async with db_pool.acquire() as conn:
+        forecast_data = await conn.fetch(
+            "SELECT ts as date, value as predicted, lower_bound as lower, upper_bound as upper "
+            "FROM forecasts WHERE metric = 'log_volume' ORDER BY ts ASC LIMIT 7"
+        )
+        return [dict(f) for f in forecast_data]
+
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
@@ -112,9 +133,10 @@ class ConnectionManager:
                 await connection.send_text(message)
 
 manager = ConnectionManager()
+anomaly_manager = ConnectionManager()
 
 # Start listening for PostgreSQL NOTIFY events
-async def listen_for_notifications(client_id: str):
+async def listen_for_notifications(client_id: str, channel: str, connection_manager):
     conn = await asyncpg.connect(
         host=os.environ.get("DB_HOST", "db"),
         port=int(os.environ.get("DB_PORT", "5432")),
@@ -123,13 +145,13 @@ async def listen_for_notifications(client_id: str):
         database=os.environ.get("DB_NAME", "logforge_db")
     )
     
-    await conn.add_listener('new_log', lambda _, msg: asyncio.create_task(
-        manager.broadcast(msg, client_id)
+    await conn.add_listener(channel, lambda _, msg: asyncio.create_task(
+        connection_manager.broadcast(msg, client_id)
     ))
     
     try:
         # Keep the connection open to receive notifications
-        while client_id in manager.active_connections:
+        while client_id in connection_manager.active_connections:
             await asyncio.sleep(1)
     finally:
         await conn.close()
@@ -142,7 +164,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
     await manager.connect(websocket, client_id)
     
     # Start PostgreSQL NOTIFY listener in background
-    listener_task = asyncio.create_task(listen_for_notifications(client_id))
+    listener_task = asyncio.create_task(listen_for_notifications(client_id, 'new_log', manager))
     
     try:
         while True:
@@ -150,4 +172,23 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, client_id)
+        listener_task.cancel()
+
+@app.websocket("/ws/anomalies")
+async def anomalies_websocket(websocket: WebSocket, client_id: str = None):
+    """WebSocket endpoint for real-time anomaly notifications."""
+    if client_id is None:
+        client_id = f"anomaly_client_{id(websocket)}"
+        
+    await anomaly_manager.connect(websocket, client_id)
+    
+    # Start PostgreSQL NOTIFY listener for anomalies in background
+    listener_task = asyncio.create_task(listen_for_notifications(client_id, 'new_anomaly', anomaly_manager))
+    
+    try:
+        while True:
+            # Keep the connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        anomaly_manager.disconnect(websocket, client_id)
         listener_task.cancel()
