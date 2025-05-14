@@ -4,9 +4,28 @@ const net = require('net');
 const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 // Load environment variables from .env file if present
 dotenv.config();
+
+// Create logs directory if it doesn't exist
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+}
+
+// Configure logging
+const logFile = path.join(logsDir, 'ingest.log');
+const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+
+function logMessage(message) {
+    const timestamp = new Date().toISOString();
+    const logEntry = `${timestamp} - ${message}\n`;
+    console.log(logEntry.trim());
+    logStream.write(logEntry);
+}
 
 // Configure PostgreSQL connection
 const pool = new Pool({
@@ -20,10 +39,10 @@ const pool = new Pool({
 // Test database connection
 pool.query('SELECT NOW()', (err) => {
   if (err) {
-    console.error('Database connection failed:', err);
+    logMessage(`Database connection failed: ${err.message}`);
     // Continue running even if DB connection fails initially
   } else {
-    console.log('Database connection successful');
+    logMessage('Database connection successful');
   }
 });
 
@@ -72,7 +91,7 @@ function parseSyslogMessage(message) {
       };
     }
   } catch (error) {
-    console.error('Error parsing syslog message:', error);
+    logMessage(`Error parsing syslog message: ${error.message}`);
     return {
       id: uuidv4(),
       ts: new Date().toISOString(),
@@ -122,9 +141,9 @@ async function processLog(log) {
       await checkAlerts(log);
     }
     
-    console.log(`Log processed: ${log.host} - ${log.app} - ${log.severity} - ${log.msg.substring(0, 50)}`);
+    logMessage(`Log processed: ${log.host} - ${log.app} - ${log.severity} - ${log.msg.substring(0, 50)}`);
   } catch (error) {
-    console.error('Error saving log to database:', error);
+    logMessage(`Error saving log to database: ${error.message}`);
   }
 }
 
@@ -173,7 +192,7 @@ async function checkAlerts(log) {
       }
     }
   } catch (error) {
-    console.error('Error checking alerts:', error);
+    logMessage(`Error checking alerts: ${error.message}`);
   }
 }
 
@@ -181,59 +200,61 @@ async function checkAlerts(log) {
 const udpServer = dgram.createSocket('udp4');
 
 udpServer.on('error', (err) => {
-  console.error('UDP server error:', err);
+  logMessage(`UDP server error: ${err.message}`);
   udpServer.close();
 });
 
 udpServer.on('message', async (msg, rinfo) => {
-  console.log(`UDP message from ${rinfo.address}:${rinfo.port}`);
+  logMessage(`UDP message from ${rinfo.address}:${rinfo.port}`);
   const logEntry = parseSyslogMessage(msg);
   await processLog(logEntry);
 });
 
 udpServer.on('listening', () => {
   const address = udpServer.address();
-  console.log(`UDP server listening on ${address.address}:${address.port}`);
+  logMessage(`UDP server listening on ${address.address}:${address.port}`);
 });
 
 udpServer.bind(514);
 
 // Setup TCP server (port 514)
 const tcpServer = net.createServer((socket) => {
-  console.log('TCP client connected');
+  logMessage('TCP client connected');
   
   socket.on('data', async (data) => {
-    console.log(`TCP data received`);
+    logMessage(`TCP data received`);
     const logEntry = parseSyslogMessage(data);
     await processLog(logEntry);
   });
   
   socket.on('error', (err) => {
-    console.error('TCP socket error:', err);
+    logMessage(`TCP socket error: ${err.message}`);
   });
 });
 
 tcpServer.on('error', (err) => {
-  console.error('TCP server error:', err);
+  logMessage(`TCP server error: ${err.message}`);
 });
 
 tcpServer.listen(514, () => {
-  console.log('TCP server listening on port 514');
+  logMessage('TCP server listening on port 514');
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down...');
+  logMessage('SIGTERM received, shutting down...');
   udpServer.close();
   tcpServer.close();
   pool.end();
+  logStream.end();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down...');
+  logMessage('SIGINT received, shutting down...');
   udpServer.close();
   tcpServer.close();
   pool.end();
+  logStream.end();
   process.exit(0);
 });
