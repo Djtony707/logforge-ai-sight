@@ -121,6 +121,11 @@ export const searchLogs = async (params: SearchLogsParams) => {
   });
 };
 
+// Get log patterns
+export const getLogPatterns = async () => {
+  return fetchApi("/logs/patterns");
+};
+
 // New API functions for alerts
 export const getAlerts = async () => {
   return fetchApi("/alerts");

@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 # Authentication models
@@ -61,3 +61,9 @@ class Alert(AlertBase):
     created_at: datetime
     created_by: Optional[int] = None
     last_triggered: Optional[datetime] = None
+
+# Pattern Analysis models
+class LogPattern(BaseModel):
+    pattern: str
+    count: int
+    examples: List[Dict[str, Any]]

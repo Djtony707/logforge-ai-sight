@@ -1,10 +1,11 @@
-
 from fastapi import Depends, WebSocket, WebSocketDisconnect
 from typing import Annotated, Dict, List
 import asyncio
 import asyncpg
 import json
 import os
+import re
+from collections import Counter
 
 from .. import app, db_pool
 from ..models import LogSearch
@@ -106,6 +107,64 @@ async def get_log_forecast(current_user: Annotated[dict, Depends(get_current_act
             "FROM forecasts WHERE metric = 'log_volume' ORDER BY ts ASC LIMIT 7"
         )
         return [dict(f) for f in forecast_data]
+
+@app.get("/logs/patterns")
+async def get_log_patterns(current_user: Annotated[dict, Depends(get_current_active_user)], limit: int = 10):
+    """Get the most common log message patterns."""
+    async with db_pool.acquire() as conn:
+        # Get recent logs for pattern analysis
+        logs = await conn.fetch(
+            "SELECT msg FROM logs ORDER BY ts DESC LIMIT 1000"
+        )
+        
+        # Extract patterns from logs
+        patterns = []
+        pattern_counts = Counter()
+        
+        for log in logs:
+            # Replace specific values with placeholders
+            # IPs, timestamps, numbers, hexadecimal values, UUIDs
+            msg = log['msg']
+            
+            # Replace common variable patterns
+            pattern = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', '<IP_ADDRESS>', msg)
+            pattern = re.sub(r'\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b', '<UUID>', pattern, flags=re.IGNORECASE)
+            pattern = re.sub(r'\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b', '<TIMESTAMP>', pattern)
+            pattern = re.sub(r'\b0x[0-9a-f]+\b', '<HEX_VALUE>', pattern, flags=re.IGNORECASE)
+            pattern = re.sub(r'\b\d+\b', '<NUMBER>', pattern)
+            
+            pattern_counts[pattern] += 1
+        
+        # Get the most common patterns
+        most_common_patterns = [
+            {"pattern": pattern, "count": count, "examples": []}
+            for pattern, count in pattern_counts.most_common(limit)
+        ]
+        
+        # Find examples for each pattern
+        for pattern_info in most_common_patterns:
+            pattern_regex = pattern_info["pattern"]
+            
+            # Convert the pattern back to a regex pattern for matching examples
+            search_pattern = pattern_regex
+            search_pattern = search_pattern.replace('<IP_ADDRESS>', r'(?:\d{1,3}\.){3}\d{1,3}')
+            search_pattern = search_pattern.replace('<UUID>', r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+            search_pattern = search_pattern.replace('<TIMESTAMP>', r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?')
+            search_pattern = search_pattern.replace('<HEX_VALUE>', r'0x[0-9a-f]+')
+            search_pattern = search_pattern.replace('<NUMBER>', r'\d+')
+            
+            # Escape any special regex characters in the original text
+            search_pattern = "^" + re.escape(search_pattern).replace("\<", "<").replace("\>", ">") + "$"
+            
+            # Find examples for this pattern
+            examples = await conn.fetch(
+                "SELECT id, ts, host, app, severity, msg FROM logs WHERE msg ~ $1 ORDER BY ts DESC LIMIT 3",
+                search_pattern
+            )
+            
+            pattern_info["examples"] = [dict(example) for example in examples]
+        
+        return most_common_patterns
 
 # WebSocket connection manager
 class ConnectionManager:

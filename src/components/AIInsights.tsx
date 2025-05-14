@@ -1,9 +1,10 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, TrendingUp, Info } from "lucide-react";
+import { AlertTriangle, TrendingUp, Info, FileCode } from "lucide-react";
 import NaturalLanguageSearch from "./ai/NaturalLanguageSearch";
 import ForecastSection from "./ai/ForecastSection";
 import AnomalySection from "./ai/AnomalySection";
+import PatternAnalysisSection from "./ai/PatternAnalysisSection";
 
 const AIInsights = () => {
   return (
@@ -50,6 +51,21 @@ const AIInsights = () => {
         </CardHeader>
         <CardContent>
           <AnomalySection />
+        </CardContent>
+      </Card>
+
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <FileCode className="mr-2 h-5 w-5" />
+            Log Pattern Analysis
+          </CardTitle>
+          <CardDescription>
+            Recurring patterns identified in your logs
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PatternAnalysisSection />
         </CardContent>
       </Card>
     </div>
