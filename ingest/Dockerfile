@@ -13,7 +13,7 @@ COPY . .
 # Create logs directory
 RUN mkdir -p logs
 
-# Expose syslog ports for UDP and TCP
+# Expose syslog ports for UDP and TCP (port 514 is the default)
 EXPOSE 514/udp
 EXPOSE 514/tcp
 

@@ -1,7 +1,7 @@
 
 # LogForge AI
 
-Single-box syslog dashboard that you can run with one command, then open a browser to see live logs, search history, and get local-only AI insights.
+A lightweight syslog dashboard that you can run with one command, then open a browser to see live logs, search history, and get local-only AI insights.
 
 ## Features
 
@@ -17,7 +17,7 @@ Single-box syslog dashboard that you can run with one command, then open a brows
 - **Secure Access**: Role-based authentication with admin and viewer roles
 - **Local-only Processing**: All data stays on your server for maximum privacy and security
 
-## Quick Start (5 minutes)
+## Quick Start
 
 ### Prerequisites
 
@@ -88,20 +88,6 @@ docker-compose up -d
 4. Access the dashboard:
 Open your browser and navigate to http://your-server-ip:3000
 
-## System Architecture
-
-LogForge AI is built with a modular architecture:
-
-- **Ingest Service**: Node.js syslog listener (UDP/TCP port 514)
-- **Database**: PostgreSQL 16 + TimescaleDB + pgvector for time-series and vector storage
-- **API Service**: FastAPI backend with REST and WebSocket endpoints
-- **Frontend**: React 18 with TypeScript, Vite, TailwindCSS, and shadcn/ui components
-- **AI Services**:
-  - IsolationForest for anomaly detection (Python)
-  - Ollama with TinyLlama-1.1B for natural language processing
-  - Prophet for log volume forecasting
-  - Optional Mistral-7B for advanced log summarization
-
 ## Configuring Log Sources
 
 To send logs to LogForge AI, configure your systems to forward syslog messages to your LogForge server:
@@ -148,48 +134,8 @@ sudo systemctl enable --now systemd-journal-upload.service
 
 ## Hardware Requirements
 
-- **Minimum**: 8 CPU cores, 16 GB RAM
-- **Recommended**: 16 CPU cores, 32 GB RAM, SSD storage
-
-## AI Features
-
-LogForge AI includes several powerful AI capabilities:
-
-### Natural Language Queries
-
-Ask questions about your logs in plain English:
-- "Show me all failed login attempts in the last hour"
-- "What are the top error messages today?"
-- "Find all high CPU usage warnings from web servers"
-
-### Real-time Anomaly Detection
-
-The system automatically identifies unusual log patterns that may indicate issues:
-- Statistical outlier detection for log volume
-- Pattern-based anomaly detection for message content
-- Context-aware severity assessment
-
-### Pattern Analysis
-
-LogForge AI analyzes your log data to identify recurring patterns:
-- Groups similar log entries together
-- Replaces variable data with placeholders
-- Shows frequency and examples of each pattern
-
-### Log Volume Forecasting
-
-Based on historical data, the system predicts future log volume:
-- 7-day predictive forecast
-- Trend identification
-- Anomaly detection based on expected patterns
-
-## Data Retention and Backup
-
-LogForge AI includes automatic database backup and log rotation:
-
-- Daily database backups (configurable retention period)
-- Automatic log rotation to prevent disk space issues
-- Easy restore process from backup files
+- **Minimum**: 4 CPU cores, 8 GB RAM
+- **Recommended**: 8 CPU cores, 16 GB RAM, SSD storage
 
 ## Troubleshooting
 
@@ -208,24 +154,12 @@ LogForge AI includes automatic database backup and log rotation:
 3. **AI features not working**:
    - Check if the AI services are running with `docker-compose ps`
    - Inspect logs with `docker-compose logs ai_anomaly` or `docker-compose logs ai_nl`
-   - Verify database connectivity for AI services
 
 For more help, check the logs:
 ```bash
 docker-compose logs -f
 ```
 
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Commit your changes: `git commit -am 'Add some feature'`
-4. Push to the branch: `git push origin feature-name`
-5. Submit a pull request
-
 ## License
 
 MIT License
-

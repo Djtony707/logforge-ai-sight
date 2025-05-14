@@ -1,7 +1,8 @@
 
 const { startUdpServer, startTcpServer } = require('./syslog-listener');
 
-const SYSLOG_PORT = process.env.SYSLOG_PORT || 514;
+// Default syslog port is 514
+const SYSLOG_PORT = 514;
 
 // Start syslog servers
 startUdpServer(SYSLOG_PORT);
