@@ -30,7 +30,7 @@ const AlertForm = ({ onCancel, existingAlert }: AlertFormProps) => {
   const [description, setDescription] = useState(existingAlert?.description || "");
   const [severity, setSeverity] = useState(existingAlert?.severity || "warning");
   const [query, setQuery] = useState(existingAlert?.query || "");
-  const [isActive, setIsActive] = useState(existingAlert?.is_active || true);
+  const [isActive, setIsActive] = useState(existingAlert?.is_active ?? true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const queryClient = useQueryClient();
@@ -140,7 +140,7 @@ const AlertForm = ({ onCancel, existingAlert }: AlertFormProps) => {
           <Switch
             id="isActive"
             checked={isActive}
-            onCheckedChange={setIsActive}
+            onCheckedChange={(checked: boolean) => setIsActive(checked)}
           />
           <Label htmlFor="isActive">Active</Label>
         </div>

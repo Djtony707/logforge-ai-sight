@@ -1,5 +1,5 @@
 
-import { Shield, ShieldOff, FileExport, FileX } from "lucide-react";
+import { Shield, ShieldOff, FileText, FileX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -77,7 +77,7 @@ const AlertCard = ({ alert, onEdit, onToggle, onDelete }: AlertCardProps) => {
       
       <div className="border-t px-4 py-3 bg-gray-50 flex justify-end space-x-2">
         <Button variant="outline" size="sm" onClick={onEdit}>
-          <FileExport className="h-4 w-4 mr-1" />
+          <FileText className="h-4 w-4 mr-1" />
           Edit
         </Button>
         

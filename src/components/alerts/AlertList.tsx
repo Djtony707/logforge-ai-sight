@@ -52,7 +52,7 @@ const AlertList = () => {
     }
   ];
 
-  const displayAlerts = process.env.NODE_ENV === "development" && !alerts ? mockAlerts : alerts;
+  const displayAlerts = process.env.NODE_ENV === "development" && !alerts ? mockAlerts : alerts as AlertItem[];
 
   if (isLoading) {
     return (
