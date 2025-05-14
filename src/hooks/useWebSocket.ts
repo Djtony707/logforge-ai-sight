@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { API_URL } from "@/lib/api";
 
 interface UseWebSocketOptions {
   reconnectAttempts?: number;
@@ -53,10 +54,9 @@ const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => {
 
     try {
       // Use API_URL from environment or default to current host
-      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
       const wsUrl = url.startsWith("ws") 
         ? url 
-        : `${apiUrl.replace(/^http/, 'ws')}${url}`;
+        : `${API_URL.replace(/^http/, 'ws')}${url}`;
       
       console.log(`[WebSocket] Connecting to ${wsUrl}`);
       const ws = new WebSocket(wsUrl);

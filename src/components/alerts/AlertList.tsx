@@ -1,111 +1,111 @@
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getAlerts } from "@/lib/api";
-import { Alert } from "@/components/ui/alert";
-import AlertCard from "./AlertCard";
-import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle, Trash2 } from "lucide-react";
+import AlertCard from "@/components/alerts/AlertCard";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getAlerts, deleteAlert, updateAlert } from "@/lib/api";
+import { toast } from "@/components/ui/sonner";
 
-interface AlertItem {
+export interface Alert {
   id: number;
   name: string;
   description: string;
   severity: string;
   query: string;
   is_active: boolean;
+  created_at: string;
+  last_triggered?: string;
 }
 
 const AlertList = () => {
-  const [editingAlert, setEditingAlert] = useState<AlertItem | null>(null);
+  const queryClient = useQueryClient();
   
-  const { data: alerts, isLoading, isError } = useQuery({
+  // Fetch alerts from the API
+  const { data: alerts, isLoading, error } = useQuery({
     queryKey: ['alerts'],
     queryFn: getAlerts,
-    refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  // Mock data for development without a backend
-  const mockAlerts: AlertItem[] = [
-    {
-      id: 1,
-      name: "Critical System Errors",
-      description: "Monitor for any critical system errors across all services",
-      severity: "critical",
-      query: "severity='critical'",
-      is_active: true,
+  // Delete alert mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteAlert(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      toast.success("Alert deleted successfully");
     },
-    {
-      id: 2,
-      name: "Failed Login Attempts",
-      description: "Alert when multiple failed login attempts are detected",
-      severity: "warning",
-      query: "app='auth' AND msg LIKE '%failed login%'",
-      is_active: true,
+    onError: (error) => {
+      toast.error("Failed to delete alert", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
     },
-    {
-      id: 3,
-      name: "Disk Space Warnings",
-      description: "Monitor low disk space warnings",
-      severity: "warning",
-      query: "msg LIKE '%disk space%'",
-      is_active: false,
-    }
-  ];
+  });
 
-  const displayAlerts = process.env.NODE_ENV === "development" && !alerts ? mockAlerts : alerts as AlertItem[];
+  // Update alert status mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Alert> }) => updateAlert(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      toast.success("Alert updated successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to update alert", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    },
+  });
+
+  const handleDelete = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this alert?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleToggleActive = (id: number, currentStatus: boolean) => {
+    updateMutation.mutate({
+      id,
+      data: { is_active: !currentStatus },
+    });
+  };
 
   if (isLoading) {
     return (
-      <div className="py-8 text-center">
-        <p>Loading alerts...</p>
+      <div className="space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <Skeleton key={i} className="h-36 w-full rounded-lg" />
+        ))}
       </div>
     );
   }
 
-  if (isError) {
+  if (error) {
     return (
-      <Alert variant="destructive" className="mb-4">
-        Failed to load alerts. Please try again later.
-      </Alert>
+      <div className="p-8 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center">
+        <AlertCircle className="text-red-500 mr-2" />
+        <p className="text-red-700">Failed to load alerts</p>
+      </div>
     );
   }
 
-  if (!displayAlerts || displayAlerts.length === 0) {
+  if (!alerts || alerts.length === 0) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-        <p className="text-gray-500">No alerts configured yet.</p>
-        <p className="text-sm text-gray-400 mt-2">
-          Create your first alert to start monitoring for important log events.
-        </p>
+      <div className="p-8 bg-gray-50 border border-gray-200 rounded-lg flex flex-col items-center justify-center">
+        <p className="text-gray-500 mb-2">No alerts configured</p>
+        <p className="text-gray-400 text-sm mb-4">Create an alert to get notified about important log events</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {displayAlerts.map((alert) => (
+      {alerts.map((alert: Alert) => (
         <AlertCard
           key={alert.id}
           alert={alert}
-          onEdit={() => setEditingAlert(alert)}
-          onToggle={(isActive) => {
-            // In development mode with mock data, just show toast
-            if (process.env.NODE_ENV === "development" && !alerts) {
-              toast.success(`Alert "${alert.name}" ${isActive ? "activated" : "deactivated"}`);
-              return;
-            }
-            
-            // Actual API call would go here
-          }}
-          onDelete={() => {
-            // In development mode with mock data, just show toast
-            if (process.env.NODE_ENV === "development" && !alerts) {
-              toast.success(`Alert "${alert.name}" deleted`);
-              return;
-            }
-            
-            // Actual API call would go here
-          }}
+          onDelete={() => handleDelete(alert.id)}
+          onToggleActive={() => handleToggleActive(alert.id, alert.is_active)}
         />
       ))}
     </div>

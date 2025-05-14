@@ -6,163 +6,141 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Shield, ShieldCheck } from "lucide-react";
-import { toast } from "sonner";
-import { createAlert, NewAlert } from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createAlert } from "@/lib/api";
+import { toast } from "@/components/ui/sonner";
+import { severityOptions } from "@/lib/constants";
 
 interface AlertFormProps {
   onCancel: () => void;
-  existingAlert?: {
-    id: number;
-    name: string;
-    description: string;
-    severity: string;
-    query: string;
-    is_active: boolean;
-  };
 }
 
-const severityOptions = ["info", "warning", "error", "critical"];
-
-const AlertForm = ({ onCancel, existingAlert }: AlertFormProps) => {
-  const [name, setName] = useState(existingAlert?.name || "");
-  const [description, setDescription] = useState(existingAlert?.description || "");
-  const [severity, setSeverity] = useState(existingAlert?.severity || "warning");
-  const [query, setQuery] = useState(existingAlert?.query || "");
-  const [isActive, setIsActive] = useState(existingAlert?.is_active ?? true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
+const AlertForm = ({ onCancel }: AlertFormProps) => {
   const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [severity, setSeverity] = useState("warning");
+  const [query, setQuery] = useState("");
+  const [isActive, setIsActive] = useState(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const mutation = useMutation({
+    mutationFn: createAlert,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      toast.success("Alert created successfully");
+      onCancel();
+    },
+    onError: (error) => {
+      toast.error("Failed to create alert", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !description || !query) {
-      toast.error("Please fill all required fields");
+    // Validate form
+    if (!name.trim()) {
+      toast.error("Alert name is required");
       return;
     }
-
-    try {
-      setIsSubmitting(true);
-      
-      const alertData: NewAlert = {
-        name,
-        description,
-        severity,
-        query,
-        is_active: isActive
-      };
-      
-      await createAlert(alertData);
-      
-      // Invalidate alerts cache to trigger a refetch
-      queryClient.invalidateQueries({ queryKey: ['alerts'] });
-      
-      toast.success("Alert created successfully");
-      onCancel(); // Close the form
-    } catch (error) {
-      console.error("Failed to create alert:", error);
-      toast.error("Failed to create alert", { 
-        description: error instanceof Error ? error.message : "Unknown error" 
-      });
-    } finally {
-      setIsSubmitting(false);
+    
+    if (!query.trim()) {
+      toast.error("Alert query is required");
+      return;
     }
+    
+    mutation.mutate({
+      name,
+      description,
+      severity,
+      query,
+      is_active: isActive
+    });
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <div className="flex items-center mb-6">
-        <ShieldCheck className="h-6 w-6 mr-2 text-primary" />
-        <h3 className="text-xl font-semibold">
-          {existingAlert ? "Edit Alert" : "Create New Alert"}
-        </h3>
-      </div>
+    <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-6 space-y-4">
+      <h3 className="text-lg font-medium mb-4">Create New Alert</h3>
       
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="name">Alert Name</Label>
-            <Input
-              id="name"
-              placeholder="Failed Login Attempts"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="severity">Severity</Label>
-            <Select value={severity} onValueChange={setSeverity}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select severity" />
-              </SelectTrigger>
-              <SelectContent>
-                {severityOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
-        <div>
-          <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
-            placeholder="Alert triggers when multiple failed login attempts are detected..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+      <div className="space-y-4">
+        <div className="grid gap-2">
+          <Label htmlFor="name">Alert Name</Label>
+          <Input 
+            id="name" 
+            placeholder="E.g., 'Critical Errors'" 
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             required
           />
         </div>
         
-        <div>
+        <div className="grid gap-2">
+          <Label htmlFor="description">Description</Label>
+          <Textarea 
+            id="description" 
+            placeholder="What does this alert detect?" 
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="resize-none"
+          />
+        </div>
+        
+        <div className="grid gap-2">
+          <Label htmlFor="severity">Severity Level</Label>
+          <Select value={severity} onValueChange={setSeverity}>
+            <SelectTrigger id="severity">
+              <SelectValue placeholder="Select severity" />
+            </SelectTrigger>
+            <SelectContent>
+              {severityOptions.map(option => (
+                <SelectItem key={option} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="grid gap-2">
           <Label htmlFor="query">Query Pattern</Label>
-          <Textarea
-            id="query"
-            placeholder="app='auth' AND msg LIKE '%failed login%'"
+          <Input 
+            id="query" 
+            placeholder="E.g., 'error' or 'database connection'" 
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             required
-            className="font-mono"
           />
-          <p className="text-sm text-gray-500 mt-1">
-            Example: app='nginx' AND severity='error' OR msg LIKE '%permission denied%'
+          <p className="text-xs text-gray-500">
+            Simple text pattern to match in log messages
           </p>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="isActive"
+        <div className="flex items-center gap-2">
+          <Switch 
+            id="active" 
             checked={isActive}
-            onCheckedChange={(checked: boolean) => setIsActive(checked)}
+            onCheckedChange={setIsActive}
           />
-          <Label htmlFor="isActive">Active</Label>
+          <Label htmlFor="active">Alert Active</Label>
         </div>
-        
-        <div className="flex justify-end space-x-2 pt-4">
-          <Button 
-            variant="outline" 
-            onClick={onCancel} 
-            type="button"
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Saving..." : existingAlert ? "Update Alert" : "Create Alert"}
-          </Button>
-        </div>
-      </form>
-    </div>
+      </div>
+      
+      <div className="flex justify-end gap-2 pt-4">
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={onCancel}
+        >
+          Cancel
+        </Button>
+        <Button 
+          type="submit" 
+          disabled={mutation.isPending}
+        >
+          {mutation.isPending ? "Creating..." : "Create Alert"}
+        </Button>
+      </div>
+    </form>
   );
 };
 

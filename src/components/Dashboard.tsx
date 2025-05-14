@@ -1,6 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
+import AlertNotifications from "@/components/alerts/AlertNotifications";
 
 interface DashboardProps {
   children: React.ReactNode;
@@ -30,6 +31,9 @@ const Dashboard = ({ children, role, onLogout }: DashboardProps) => {
       <footer className="container mx-auto p-4 text-center text-sm text-gray-500 border-t">
         <p>LogForge AI - Local-only syslog dashboard with AI insights</p>
       </footer>
+      
+      {/* Alert notifications component */}
+      <AlertNotifications />
     </div>
   );
 };
